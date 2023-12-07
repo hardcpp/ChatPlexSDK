@@ -88,7 +88,7 @@ namespace CP_SDK.Chat.Services.Twitch
                 ChatPlexSDK.Logger.Error(l_Exception);
             }
 
-            if (l_IsGlobal)
+            if (l_IsGlobal && false)
             {
                 try
                 {
