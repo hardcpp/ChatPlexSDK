@@ -456,7 +456,7 @@ namespace CP_SDK.XRInput
             if (p_PointerEventData.pointerEnter == p_NewEnterTarget && p_NewEnterTarget)
                 return;
 
-            var l_CommonRoot = p_PointerEventData.pointerEnter?.FindCommonRoot(p_NewEnterTarget) ?? null;
+            var l_CommonRoot = GameObjectU.FindCommonRoot(p_PointerEventData.pointerEnter, p_NewEnterTarget) ?? null;
             if (p_PointerEventData.pointerEnter != null)
             {
                 for (var l_Transform = p_PointerEventData.pointerEnter.transform
