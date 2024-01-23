@@ -5,7 +5,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+#if CP_SDK_UNITY
 using UnityEngine.Networking;
+#endif
 
 namespace CP_SDK.Network
 {
@@ -79,6 +81,8 @@ namespace CP_SDK.Network
             IsSuccessStatusCode = p_Response.IsSuccessStatusCode;
             ShouldRetry         = IsSuccessStatusCode ? false : ((int)p_Response.StatusCode < 400 || (int)p_Response.StatusCode >= 500);
         }
+
+#if CP_SDK_UNITY
         /// <summary>
         /// Constructor
         /// </summary>
@@ -92,6 +96,7 @@ namespace CP_SDK.Network
 
             m_BodyBytes         = p_Request.downloadHandler.data;
         }
+#endif
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
