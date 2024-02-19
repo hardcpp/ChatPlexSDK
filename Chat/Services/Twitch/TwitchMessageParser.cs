@@ -206,7 +206,7 @@ namespace CP_SDK.Chat.Services.Twitch
                     var l_NewMessage = new TwitchMessage()
                     {
                         Id                  = l_Tags.TryGetValue("id", out var l_MessageId) ? l_MessageId : "", /// TODO: default id of some sort?
-                        Sender              = GetAndUpdateUser(l_Tags, l_Prefix, l_MessageRoomId, (l_MessageType == "PRIVMSG" || l_MessageType == "USERSTATE") ? p_LoggedInUsername : string.Empty),
+                        Sender              = GetAndUpdateUser(l_Channel, l_Tags, l_Prefix, l_MessageRoomId, (l_MessageType == "PRIVMSG" || l_MessageType == "USERSTATE") ? p_LoggedInUsername : string.Empty),
                         Channel             = l_Channel,
                         Emotes              = l_Emotes,
                         Message             = l_MessageText,
@@ -356,7 +356,7 @@ namespace CP_SDK.Chat.Services.Twitch
         /// <param name="p_RoomID">Channel ID</param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public TwitchUser GetAndUpdateUser(Dictionary<string, string> p_Tags, string p_Prefix, string p_RoomID, string p_OverrideUserName)
+        public TwitchUser GetAndUpdateUser(TwitchChannel p_Channel, Dictionary<string, string> p_Tags, string p_Prefix, string p_RoomID, string p_OverrideUserName)
         {
             var l_UserName  = p_Prefix.Contains('!') ? p_Prefix.Substring(0, p_Prefix.IndexOf('!')) : p_OverrideUserName;
             var l_HasColor  = p_Tags.TryGetValue("color", out var l_Color);
@@ -381,11 +381,14 @@ namespace CP_SDK.Chat.Services.Twitch
 
             if (m_TwitchDataProvider.IsReady && p_Tags.TryGetValue("badges", out var l_BadgeStr) && l_BadgeStr.Length != l_User._BadgesCache)
             {
-                l_User.IsModerator      = l_BadgeStr.Contains("moderator/");
-                l_User.IsBroadcaster    = l_BadgeStr.Contains("broadcaster/");
-                l_User.IsSubscriber     = l_BadgeStr.Contains("subscriber/") || l_BadgeStr.Contains("founder/");
-                l_User.IsTurbo          = l_BadgeStr.Contains("turbo/");
-                l_User.IsVip            = l_BadgeStr.Contains("vip/");
+                if (p_Channel == null || !p_Channel.IsTemp)
+                {
+                    l_User.IsModerator      = l_BadgeStr.Contains("moderator/");
+                    l_User.IsBroadcaster    = l_BadgeStr.Contains("broadcaster/");
+                    l_User.IsSubscriber     = l_BadgeStr.Contains("subscriber/") || l_BadgeStr.Contains("founder/");
+                    l_User.IsTurbo          = l_BadgeStr.Contains("turbo/");
+                    l_User.IsVip            = l_BadgeStr.Contains("vip/");
+                }
 
                 var l_Parts     = l_BadgeStr.Split(',');
                 var l_Badges    = Pool.MTListPool<IChatBadge>.Get();

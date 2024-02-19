@@ -1267,8 +1267,6 @@ namespace CP_SDK.Chat.Services.Twitch
         {
             if (m_TwitchUsers.TryGetValue(p_UserName, out var l_User))
             {
-
-
                 if (m_DataProvider.IsReady && !l_User._FancyNameReady && !string.IsNullOrEmpty(l_User.Id) && !string.IsNullOrEmpty(l_User.DisplayName))
                 {
                     m_DataProvider.TryGetUserDisplayName(l_User.Id, l_User.DisplayName, out var l_PaintedName);
