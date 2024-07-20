@@ -59,7 +59,7 @@ namespace CP_SDK
 
             ProductName         = p_ProductName;
             ProductVersion      = $"{l_Version.Major}.{l_Version.Minor}.{l_Version.Build}";
-            BasePath            = p_BasePath;
+            BasePath            = p_BasePath.Replace("\\", "/");
             NetworkUserAgent    = $"ChatPlexSDK_{p_ProductName}/{Application.version}";
             RenderPipeline      = p_RenderPipeline;
         }
