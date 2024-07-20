@@ -10,6 +10,7 @@ namespace CP_SDK.Chat.Models.Twitch
         public bool         IsSystemMessage { get; internal set; }
         public bool         IsActionMessage { get; internal set; }
         public bool         IsHighlighted   { get; internal set; }
+        public bool         IsGiganticEmote { get; internal set; }
         public bool         IsPing          { get; internal set; }
         public bool         IsRaid          { get; internal set; }
         public int          RaidViewerCount { get; internal set; }

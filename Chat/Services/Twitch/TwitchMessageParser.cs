@@ -213,6 +213,7 @@ namespace CP_SDK.Chat.Services.Twitch
                         IsActionMessage     = l_IsActionMessage,
                         IsSystemMessage     = l_MessageType == "NOTICE" || l_MessageType == "USERNOTICE",
                         IsHighlighted       = false,
+                        IsGiganticEmote     = false,
                         IsPing              = !string.IsNullOrEmpty(l_MessageText) && p_LoggedInUser != null && l_MessageText.Contains("@" + p_LoggedInUser.DisplayName, StringComparison.OrdinalIgnoreCase),
                         Bits                = l_MessageBits,
                         TargetUserId        = l_Tags.ContainsKey("target-user-id") ? l_Tags["target-user-id"] : string.Empty,
@@ -234,6 +235,14 @@ namespace CP_SDK.Chat.Services.Twitch
                                 l_SystemMessage.Emotes              = null;
 
                                 p_ParsedMessages.Add(l_SystemMessage);
+                                break;
+
+                            case "gigantified-emote-message":
+                                l_NewMessage.IsGiganticEmote        = true;
+                                break;
+
+                            case "animated-message":
+                                l_NewMessage.IsHighlighted          = true;
                                 break;
 
                             case "highlighted-message":

@@ -19,6 +19,10 @@
         /// </summary>
         bool IsHighlighted { get; }
         /// <summary>
+        /// True if the message emote should be gigantic
+        /// </summary>
+        bool IsGiganticEmote { get; }
+        /// <summary>
         /// True if the logged in user was tagged/pinged in this message.
         /// </summary>
         bool IsPing { get; }
