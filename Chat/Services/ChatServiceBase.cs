@@ -10,43 +10,43 @@ namespace CP_SDK.Chat.Services
     /// </summary>
     public class ChatServiceBase
     {
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>>   m_OnSystemMessageCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>>   m_OnSystemMessageCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService>>           m_OnLoginCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService>>           m_OnLoginCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService>>();
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>                                        m_OnJoinRoomCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>                                        m_OnJoinRoomCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>                                        m_OnLeaveRoomCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>                                        m_OnLeaveRoomCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>                                        m_OnRoomStateUpdatedCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>                                        m_OnRoomStateUpdatedCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, bool, int>>                             m_OnLiveStatusUpdatedCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, bool, int>>                             m_OnLiveStatusUpdatedCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, bool, int>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, Dictionary<string, IChatResourceData>>> m_OnChannelResourceDataCached
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, Dictionary<string, IChatResourceData>>> m_OnChannelResourceDataCached
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, Dictionary<string, IChatResourceData>>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser>>                             m_OnChannelFollowCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser>>                             m_OnChannelFollowCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, int>>                        m_OnChannelBitsCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, int>>                        m_OnChannelBitsCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, int>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, IChatChannelPointEvent>>     m_OnChannelPointsCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, IChatChannelPointEvent>>     m_OnChannelPointsCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, IChatChannelPointEvent>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, IChatSubscriptionEvent>>     m_OnChannelSubscriptionCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, IChatSubscriptionEvent>>     m_OnChannelSubscriptionCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, IChatSubscriptionEvent>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, int>>                        m_OnChannelRaidCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, int>>                        m_OnChannelRaidCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatChannel, IChatUser, int>>();
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatMessage>> m_OnTextMessageReceivedCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatMessage>> m_OnTextMessageReceivedCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, IChatMessage>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>> m_OnChatClearedCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>> m_OnChatClearedCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>>();
-        protected ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>> m_OnMessageClearedCallbacks
+        public ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>> m_OnMessageClearedCallbacks
             = new ConcurrentDictionary<ChatServiceBase, Action<IChatService, string>>();
 
         ////////////////////////////////////////////////////////////////////////////
