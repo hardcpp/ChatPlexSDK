@@ -1,4 +1,5 @@
 ﻿using CP_SDK.Unity.Extensions;
+using HMUI;
 using System;
 using TMPro;
 using UnityEngine;
@@ -623,6 +624,8 @@ namespace CP_SDK.UI.DefaultComponents
                 m_IncButton.SetInteractable(l_IsInteractable);
                 m_BG.color = ColorU.WithAlpha(l_IsInteractable ? m_OnColor : m_OffColor, l_IsInteractable ? 110f / 255f : 50f / 255f);
             }
+
+            m_ValueText.SetColor(l_IsInteractable ? UISystem.TextColor : UISystem.TextColorDisabled);
         }
         /// <summary>
         /// Update visuals

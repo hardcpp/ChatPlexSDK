@@ -71,6 +71,7 @@ namespace CP_SDK.UI
         public static Color TooltipBGColor          = ColorU.WithAlpha("#3A3A3B", 0.9875f);
 
         public static Color TextColor               = Color.white;
+        public static Color TextColorDisabled       = Color.white * 0.75f;
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////

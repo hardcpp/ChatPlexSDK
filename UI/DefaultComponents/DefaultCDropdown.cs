@@ -1,5 +1,4 @@
-﻿using CP_SDK.Unity.Extensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -144,7 +143,7 @@ namespace CP_SDK.UI.DefaultComponents
         {
             m_Button.interactable = p_Interactable;
 
-            m_ValueText.SetColor(p_Interactable ? UISystem.PrimaryColor : UISystem.SecondaryColor);
+            m_ValueText.SetColor(p_Interactable ? UISystem.TextColor : UISystem.TextColorDisabled);
             m_Icon.SetInteractable(p_Interactable);
 
             return this;
