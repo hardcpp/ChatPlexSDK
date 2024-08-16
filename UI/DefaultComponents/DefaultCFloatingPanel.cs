@@ -44,6 +44,8 @@ namespace CP_SDK.UI.DefaultComponents
             l_CanvasScaler.dynamicPixelsPerUnit     = 3.44f;
             l_CanvasScaler.referencePixelsPerUnit   = 10f;
 
+            gameObject.AddComponent<RectMask2D>();
+
             SetBackground(true);
             SetSize(new Vector2(20f, 20f));
 
