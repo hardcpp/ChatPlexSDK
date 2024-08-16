@@ -51,45 +51,6 @@ namespace CP_SDK.Chat.Models.Twitch
     ////////////////////////////////////////////////////////////////////////////
 
     /// <summary>
-    /// Twitch PubSub follow event
-    /// </summary>
-    internal class PubSubFollowing : PubSubMessageData
-    {
-        /// <summary>
-        /// Following user display name.
-        /// </summary>
-        internal string DisplayName { get; private set; }
-        /// <summary>
-        /// Following user username.
-        /// </summary>
-        internal string Username { get; private set; }
-        /// <summary>
-        /// Following user user-id.
-        /// </summary>
-        internal string UserId { get; private set; }
-        /// <summary>
-        /// ID of the followed channel
-        /// </summary>
-        internal string FollowedChannelId { get; set; }
-
-        ////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////
-
-        /// <summary>
-        /// Following constructor.
-        /// </summary>
-        /// <param name="p_RawJSON"></param>
-        internal PubSubFollowing(string p_RawJSON)
-        {
-            JSONNode l_Value;
-            JSONNode l_JSON = JSON.Parse(p_RawJSON);
-            if (l_JSON.TryGetKey("display_name", out l_Value)) { DisplayName   = l_Value.Value; }
-            if (l_JSON.TryGetKey("username",     out l_Value)) { Username      = l_Value.Value; }
-            if (l_JSON.TryGetKey("user_id",      out l_Value)) { UserId        = l_Value.Value; }
-        }
-    }
-
-    /// <summary>
     /// Twitch PubSub subscription event
     /// </summary>
     internal class PubSubChannelSubscription : PubSubMessageData
@@ -649,9 +610,6 @@ namespace CP_SDK.Chat.Models.Twitch
                             break;
                         case "channel-points-channel-v1":
                             MessageData = new PubSubChannelPointsEvents(l_Value.Value);
-                            break;
-                        case "following":
-                            MessageData = new PubSubFollowing(l_Value.Value);
                             break;
                         case "video-playback":
                             MessageData = new PubSubVideoPlayback(l_Value.Value);

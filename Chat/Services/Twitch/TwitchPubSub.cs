@@ -3,6 +3,7 @@ using CP_SDK.Chat.SimpleJSON;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.WebSockets;
 
 namespace CP_SDK.Chat.Services.Twitch
 {
@@ -218,9 +219,9 @@ namespace CP_SDK.Chat.Services.Twitch
         /// <summary>
         /// Twitch PubSub socket close
         /// </summary>
-        private void PubSubSocket_OnClose()
+        private void PubSubSocket_OnClose(WebSocketCloseStatus? p_CloseStatus, string p_CloseStatusDescription)
         {
-            ChatPlexSDK.Logger.Info("TwitchPubSub connection closed");
+            ChatPlexSDK.Logger.Info($"TwitchPubSub connection closed {p_CloseStatus}:{p_CloseStatusDescription}");
         }
         /// <summary>
         /// Twitch PubSub socket error
@@ -302,21 +303,6 @@ namespace CP_SDK.Chat.Services.Twitch
                                 };
 
                                 m_TwitchService.m_OnChannelPointsCallbacks?.InvokeAll(m_TwitchService, l_PointsChannel, l_PointsUser, l_PointsEvent);
-                                break;
-
-                            case "following":
-                                var l_FollowMessage = l_Message.MessageData as PubSubFollowing;
-                                l_FollowMessage.FollowedChannelId = l_Message.Topic.Split('.')[1];
-
-                                var l_FollowUser    = m_TwitchService.GetTwitchUser(l_FollowMessage.UserId, l_FollowMessage.Username, l_FollowMessage.DisplayName);
-                                var l_FollowChannel = m_TwitchService._ChannelsRaw.Select(x => x.Value).FirstOrDefault(x => x.Roomstate.RoomId == l_FollowMessage.FollowedChannelId);
-
-                                if (l_FollowUser != null && !l_FollowUser._HadFollowed)
-                                {
-                                    l_FollowUser._HadFollowed = true;
-                                    m_TwitchService.m_OnChannelFollowCallbacks?.InvokeAll(m_TwitchService, l_FollowChannel, l_FollowUser);
-                                }
-
                                 break;
 
                             case "video-playback":

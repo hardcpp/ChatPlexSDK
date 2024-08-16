@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -79,96 +80,35 @@ namespace CP_SDK.Chat.Services.Twitch
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        /// <summary>
-        /// Message parser instance
-        /// </summary>
-        private TwitchMessageParser m_MessageParser;
-        /// <summary>
-        /// Data provider
-        /// </summary>
-        private TwitchDataProvider m_DataProvider;
-        /// <summary>
-        /// IRC socket
-        /// </summary>
-        private Network.WebSocketClient m_IRCWebSocket;
-        /// <summary>
-        /// Random generator
-        /// </summary>
-        private System.Random m_Random;
-        /// <summary>
-        /// Is the service started
-        /// </summary>
-        private bool m_IsStarted = false;
-        /// <summary>
-        /// OAuth token
-        /// </summary>
-        private string m_TokenChat { get => string.IsNullOrEmpty(TwitchSettingsConfig.Instance.TokenChat) ? "" : TwitchSettingsConfig.Instance.TokenChat; }
-        /// <summary>
-        /// OAuth token for API
-        /// </summary>
-        private string m_TokenChannel { get => string.IsNullOrEmpty(TwitchSettingsConfig.Instance.TokenChannel) ? m_TokenChat : TwitchSettingsConfig.Instance.TokenChannel; }
-        /// <summary>
-        /// OAuth token cache
-        /// </summary>
+        private string m_TokenChat          => string.IsNullOrEmpty(TwitchSettingsConfig.Instance.TokenChat) ? "" : TwitchSettingsConfig.Instance.TokenChat;
+        private string m_TokenChannel       => string.IsNullOrEmpty(TwitchSettingsConfig.Instance.TokenChannel) ? m_TokenChat : TwitchSettingsConfig.Instance.TokenChannel;
         private string m_TokenChatCache;
-        /// <summary>
-        /// OAuth token cache
-        /// </summary>
         private string m_TokenChannelCache;
-        /// <summary>
-        /// Logged in user
-        /// </summary>
-        private TwitchUser m_LoggedInUser = null;
-        /// <summary>
-        /// Logged in user name
-        /// </summary>
-        private string m_LoggedInUsername;
-        /// <summary>
-        /// Joined channels
-        /// </summary>
-        private ConcurrentDictionary<string, TwitchChannel> m_Channels = new ConcurrentDictionary<string, TwitchChannel>();
-        /// <summary>
-        /// Process message queue task
-        /// </summary>
-        private Task m_ProcessQueuedMessagesTask = null;
-        /// <summary>
-        /// Update Helix task
-        /// </summary>
-        private Task m_UpdateHelixTask = null;
-        /// <summary>
-        /// Message receive lock
-        /// </summary>
-        private object m_MessageReceivedLock = new object(), m_InitLock = new object();
-        /// <summary>
-        /// Parsing buffer
-        /// </summary>
-        private List<TwitchMessage> m_MessageReceivedParsingBuffer = new List<TwitchMessage>(10);
-        /// <summary>
-        /// Send message queue
-        /// </summary>
-        private ConcurrentQueue<string> m_TextMessageQueue = new ConcurrentQueue<string>();
-        /// <summary>
-        /// Current message count
-        /// </summary>
-        private int m_CurrentSentMessageCount = 0;
-        /// <summary>
-        /// Last reset time
-        /// </summary>
-        private DateTime m_LastResetTime = DateTime.UtcNow;
-        /// <summary>
-        /// Last IRC ping
-        /// </summary>
-        private DateTime m_LastIRCSubPing = DateTime.UtcNow;
-        /// <summary>
-        /// Twitch users cache
-        /// </summary>
-        private ConcurrentDictionary<string, TwitchUser> m_TwitchUsers = new ConcurrentDictionary<string, TwitchUser>();
-        /// <summary>
-        /// Temp joined channels
-        /// </summary>
-        private ConcurrentDictionary<string, (string GroupIdentifier, string Prefix, bool CanSend)> m_TempChannels = new ConcurrentDictionary<string, (string GroupIdentifier, string Prefix, bool CanSend)>();
 
-        private TwitchPubSub    m_PubSub;
+        private bool                    m_IsStarted                 = false;
+        private TwitchMessageParser     m_MessageParser;
+        private TwitchDataProvider      m_DataProvider;
+        private Network.WebSocketClient m_IRCWebSocket;
+        private TwitchPubSub            m_PubSub;
+        private TwitchEventSub          m_EventSub;
+        private DateTime                m_LastResetTime             = DateTime.UtcNow;
+        private DateTime                m_LastIRCSubPing            = DateTime.UtcNow;
+        private Task                    m_ProcessQueuedMessagesTask = null;
+        private Task                    m_UpdateHelixTask           = null;
+        private object                  m_MessageReceivedLock       = new object();
+        private object                  m_InitLock                  = new object();
+
+        private TwitchUser              m_LoggedInUser = null;
+        private string                  m_LoggedInUsername;
+
+        private List<TwitchMessage>     m_MessageReceivedParsingBuffer  = new List<TwitchMessage>(10);
+        private ConcurrentQueue<string> m_TextMessageQueue              = new ConcurrentQueue<string>();
+        private int                     m_CurrentSentMessageCount       = 0;
+
+        private ConcurrentDictionary<string, TwitchChannel>     m_Channels      = new ConcurrentDictionary<string, TwitchChannel>();
+        private ConcurrentDictionary<string, TwitchTempChannel> m_TempChannels  = new ConcurrentDictionary<string, TwitchTempChannel>();
+        private ConcurrentDictionary<string, TwitchUser>        m_Users         = new ConcurrentDictionary<string, TwitchUser>();
+
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
@@ -182,7 +122,6 @@ namespace CP_SDK.Chat.Services.Twitch
             /// Init
             m_DataProvider  = new TwitchDataProvider();
             m_MessageParser = new TwitchMessageParser(this, m_DataProvider, new FrwTwemojiParser());
-            m_Random        = new System.Random();
             HelixAPI        = new TwitchHelix();
 
             HelixAPI.OnTokenValidate += HelixAPI_OnTokenValidate;
@@ -195,6 +134,7 @@ namespace CP_SDK.Chat.Services.Twitch
             m_IRCWebSocket.OnMessageReceived    += IRCSocket_OnMessageReceived;
 
             m_PubSub    = new TwitchPubSub(this);
+            m_EventSub  = new TwitchEventSub(this);
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -248,6 +188,7 @@ namespace CP_SDK.Chat.Services.Twitch
                     m_UpdateHelixTask = null;
                 }
 
+                m_EventSub.Disconnect();
                 m_PubSub.Disconnect();
                 m_IRCWebSocket.Disconnect();
 
@@ -481,6 +422,7 @@ namespace CP_SDK.Chat.Services.Twitch
         {
             if (p_Valid)
             {
+                m_EventSub.Connect();
                 m_PubSub.Connect();
                 m_IRCWebSocket.Connect("wss://irc-ws.chat.twitch.tv:443");
 
@@ -605,6 +547,9 @@ namespace CP_SDK.Chat.Services.Twitch
             if (!(p_Channel is TwitchChannel l_TwitchChannel) || !l_TwitchChannel.CanSendMessages || m_LoggedInUser == null)
                 return;
 
+            if (TwitchIRCLegacyCommandEmulator.Intercept(this, p_Channel, p_Message))
+                return;
+
             string l_MessageID  = System.Guid.NewGuid().ToString();
             string l_Message    = $"@id={l_MessageID} PRIVMSG #{p_Channel.Id} :{new string(p_Message.Where(c => !char.IsControl(c)).ToArray())}\r\n";
 
@@ -680,7 +625,7 @@ namespace CP_SDK.Chat.Services.Twitch
                 || m_TempChannels.Any(x => x.Key.ToLower() == p_ChannelName.ToLower()))
                 return;
 
-            m_TempChannels.TryAdd(p_ChannelName, (p_GroupIdentifier, p_Prefix, p_CanSendMessage));
+            m_TempChannels.TryAdd(p_ChannelName, new TwitchTempChannel(p_GroupIdentifier, p_Prefix, p_CanSendMessage));
 
             JoinChannel(p_ChannelName);
         }
@@ -735,15 +680,15 @@ namespace CP_SDK.Chat.Services.Twitch
             if (!string.IsNullOrEmpty(m_TokenChat))
                 m_IRCWebSocket.SendMessage($"PASS {m_TokenChat}");
 
-            m_IRCWebSocket.SendMessage($"NICK ChatPlexSDK{ChatPlexSDK.ProductName}{m_Random.Next(10000, 1000000)}");
+            m_IRCWebSocket.SendMessage($"NICK ChatPlexSDK{ChatPlexSDK.ProductName}{new System.Random((int)Misc.Time.UnixTimeNowMS()).Next(10000, 1000000)}");
             m_IRCWebSocket.SendMessage("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership");
         }
         /// <summary>
         /// Twitch IRC socket close
         /// </summary>
-        private void IRCSocket_OnClose()
+        private void IRCSocket_OnClose(WebSocketCloseStatus? p_CloseStatus, string p_CloseStatusDescription)
         {
-            ChatPlexSDK.Logger.Info("Twitch connection closed");
+            ChatPlexSDK.Logger.Info($"Twitch connection closed {p_CloseStatus}:{p_CloseStatusDescription}");
 
             m_OnSystemMessageCallbacks?.InvokeAll(this, "Disconnected from Twitch");
 #if DEBUG
@@ -755,7 +700,7 @@ namespace CP_SDK.Chat.Services.Twitch
         /// </summary>
         private void IRCSocket_OnError()
         {
-            ChatPlexSDK.Logger.Error("An error occurred in Twitch connection");
+            ChatPlexSDK.Logger.Error($"An error occurred in Twitch connection");
 
             m_OnSystemMessageCallbacks?.InvokeAll(this, "Disconnected from Twitch, error");
 #if DEBUG
@@ -883,7 +828,10 @@ namespace CP_SDK.Chat.Services.Twitch
                                 m_OnLeaveRoomCallbacks?.InvokeAll(this, l_TwitchMessage.Channel);
 
                                 if (!string.IsNullOrEmpty(m_TokenChannel) && !m_TempChannels.Any(x => x.Key.ToLower() == l_TwitchChannel.Name.ToLower()))
+                                {
                                     m_PubSub.UnsubscribeTopics(l_TwitchChannel.Roomstate.RoomId, l_TwitchChannel.Name);
+                                    m_EventSub.UnsubscrbibeAll(l_TwitchChannel.Roomstate.RoomId);
+                                }
                             }
                             continue;
 
@@ -918,6 +866,8 @@ namespace CP_SDK.Chat.Services.Twitch
                                         "channel-points-channel-v1",
                                         "video-playback"
                                     }, l_TwitchChannel.Roomstate.RoomId, l_TwitchChannel.Name);
+
+                                    m_EventSub.Subscribe_ChannelFollow(l_TwitchChannel.Roomstate.RoomId);
                                 }
                             }
                             continue;
@@ -970,7 +920,7 @@ namespace CP_SDK.Chat.Services.Twitch
         /// <returns></returns>
         internal TwitchUser GetTwitchUser(string p_UserID, string p_UserName, string p_DisplayName, string p_Color = null)
         {
-            if (m_TwitchUsers.TryGetValue(p_UserName, out var l_User))
+            if (m_Users.TryGetValue(p_UserName, out var l_User))
             {
                 if (m_DataProvider.IsReady && !l_User._FancyNameReady && !string.IsNullOrEmpty(l_User.Id) && !string.IsNullOrEmpty(l_User.DisplayName))
                 {
@@ -1001,7 +951,7 @@ namespace CP_SDK.Chat.Services.Twitch
             }
 
             if (!string.IsNullOrEmpty(p_UserName))
-                m_TwitchUsers.TryAdd(p_UserName, l_User);
+                m_Users.TryAdd(p_UserName, l_User);
 
             return l_User;
         }
