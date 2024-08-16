@@ -37,6 +37,7 @@ namespace CP_SDK
         public static string            NetworkUserAgent    { get; private set; } = string.Empty;
         public static ERenderPipeline   RenderPipeline      { get; private set; } = ERenderPipeline.BuiltIn;
         public static EGenericScene     ActiveGenericScene  { get; private set; } = EGenericScene.None;
+        public static AssetBundle       EmbedAssetBundle    { get; private set; } = null;
 
         public static event Action<EGenericScene>   OnGenericSceneChange;
         public static event Action                  OnGenericMenuSceneLoaded;
@@ -107,6 +108,15 @@ namespace CP_SDK
                 Unity.MTCoroutineStarter.Initialize();
                 Unity.MTMainThreadInvoker.Initialize();
                 Unity.MTThreadInvoker.Initialize();
+
+                /// CP_SDK asset bundle
+                var l_UnityYear     = Application.unityVersion.Substring(0, Application.unityVersion.IndexOf('.'));
+                var l_BundleName    = $"CP_SDK._Resources.CP_SDK.{RenderPipeline}.u{l_UnityYear}.bundle";
+                if (Misc.Resources.ExistFromRelPath(Assembly.GetExecutingAssembly(), l_BundleName))
+                {
+                    var l_AssetBundleBytes = Misc.Resources.FromRelPath(Assembly.GetExecutingAssembly(), l_BundleName);
+                    EmbedAssetBundle = AssetBundle.LoadFromMemory(l_AssetBundleBytes);
+                }
 
                 /// Init fonts
                 Unity.FontManager.Init();

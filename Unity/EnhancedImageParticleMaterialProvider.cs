@@ -16,8 +16,10 @@ namespace CP_SDK.Unity
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        private static Material m_Material          = null;
-        private static Material m_CustomMaterial    = null;
+        private static Material m_Material              = null;
+        private static Material m_PreviewMaterial       = null;
+        private static Material m_CustomMaterial        = null;
+        private static Material m_CustomPreviewMaterial = null;
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -33,6 +35,20 @@ namespace CP_SDK.Unity
 
             if (!m_Material)
             {
+                if (ChatPlexSDK.EmbedAssetBundle != null)
+                {
+                    var l_BundleMaterial = ChatPlexSDK.EmbedAssetBundle.LoadAsset<Material>("EnhancedImageParticleMaterial");
+                    if (l_BundleMaterial != null)
+                    {
+                        m_Material = l_BundleMaterial;
+                        SetMaterialTexture(m_Material, Texture2DU.CreateFromRaw(
+                            Misc.Resources.FromRelPath(Assembly.GetExecutingAssembly(), "CP_SDK._Resources.Heart.png")
+                        ));
+
+                        return l_BundleMaterial;
+                    }
+                }
+
                 switch (ChatPlexSDK.RenderPipeline)
                 {
                     case ERenderPipeline.BuiltIn:
@@ -49,17 +65,45 @@ namespace CP_SDK.Unity
             return m_Material;
         }
         /// <summary>
+        /// Get preview material
+        /// </summary>
+        /// <returns></returns>
+        public static Material GetPreviewMaterial()
+        {
+            if (m_CustomPreviewMaterial)
+                return m_CustomPreviewMaterial;
+
+            if (!m_PreviewMaterial)
+            {
+                if (ChatPlexSDK.EmbedAssetBundle != null)
+                {
+                    var l_BundleMaterial = ChatPlexSDK.EmbedAssetBundle.LoadAsset<Material>("EnhancedImagePreviewMaterial");
+                    if (l_BundleMaterial != null)
+                    {
+                        m_PreviewMaterial = l_BundleMaterial;
+                        return l_BundleMaterial;
+                    }
+                }
+            }
+
+            return m_PreviewMaterial;
+        }
+        /// <summary>
         /// Destroy instance
         /// </summary>
         internal static void Destroy()
         {
             m_CustomMaterial = null;
+            m_CustomPreviewMaterial = null;
 
             if (!m_Material)
                 return;
 
             GameObject.Destroy(m_Material);
-            m_Material = null;
+            GameObject.Destroy(m_PreviewMaterial);
+
+            m_Material          = null;
+            m_PreviewMaterial   = null;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -72,6 +116,14 @@ namespace CP_SDK.Unity
         public static void SetCustomMaterial(Material p_Material)
         {
             m_CustomMaterial = p_Material;
+        }
+        /// <summary>
+        /// Set custom preview material
+        /// </summary>
+        /// <param name="p_PreviewMaterial">Custom preview material</param>
+        public static void SetCustomPreviewMaterial(Material p_PreviewMaterial)
+        {
+            m_CustomPreviewMaterial = p_PreviewMaterial;
         }
 
         ////////////////////////////////////////////////////////////////////////////

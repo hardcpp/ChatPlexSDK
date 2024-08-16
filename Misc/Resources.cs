@@ -10,6 +10,43 @@ namespace CP_SDK.Misc
     public static class Resources
     {
         /// <summary>
+        /// Check if a resource exist
+        /// </summary>
+        /// <param name="p_Assembly">Executing assembly</param>
+        /// <param name="p_Path">Resource path</param>
+        /// <returns></returns>
+        public static bool ExistFromRelPath(Assembly p_Assembly, string p_Path)
+        {
+            try
+            {
+                return p_Assembly.GetManifestResourceStream(p_Assembly.GetName().Name + "." + p_Path) != null;
+            }
+            catch (Exception) { }
+
+            return false;
+        }
+        /// <summary>
+        /// Check if a resource exist
+        /// </summary>
+        /// <param name="p_Assembly">Executing assembly</param>
+        /// <param name="p_Path">Resource path</param>
+        /// <returns></returns>
+        public static bool ExistFromPath(Assembly p_Assembly, string p_Path)
+        {
+            try
+            {
+                p_Assembly.GetManifestResourceStream(p_Path);
+                return true;
+            }
+            catch (Exception) { }
+
+            return false;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
         /// Get resources bytes
         /// </summary>
         /// <param name="p_Assembly">Executing assembly</param>

@@ -190,7 +190,7 @@ namespace CP_SDK.Chat.Services.Twitch
                 CancellationToken.None,
                 (p_Result) =>
                 {
-                    if (p_Result.IsSuccessStatusCode)
+                    if (!p_Result.IsSuccessStatusCode)
                         return;
 
                     JSONNode l_JSON = JSON.Parse(p_Result?.BodyString);
@@ -201,8 +201,6 @@ namespace CP_SDK.Chat.Services.Twitch
                         var l_FirstData = l_Data.AsArray[0];
                         if (l_FirstData.TryGetKey("id", out l_Value)) { p_Subscription.ID = l_Value.Value; }
                     }
-
-                    ChatPlexSDK.Logger.Warning("TwitchEventSub subscribe: " + p_Subscription.ID);
                 },
                 true
             );
@@ -219,11 +217,7 @@ namespace CP_SDK.Chat.Services.Twitch
             m_TwitchService.HelixAPI.WebClient.DeleteAsync(
                 $"eventsub/subscriptions?id={p_Subscription.ID}",
                 CancellationToken.None,
-                (p_Result) =>
-                {
-
-                    ChatPlexSDK.Logger.Warning("TwitchEventSub UNsubscribe: " + p_Result?.BodyString ?? "none");
-                },
+                null,
                 true
             );
         }
@@ -263,8 +257,6 @@ namespace CP_SDK.Chat.Services.Twitch
         {
             lock (m_MessageReceivedLock)
             {
-                ChatPlexSDK.Logger.Warning("TwitchEventSub " + p_RawMessage);
-
                 JSONNode l_JSON = JSON.Parse(p_RawMessage);
                 JSONNode l_Value;
                 string l_MessageType        = string.Empty;

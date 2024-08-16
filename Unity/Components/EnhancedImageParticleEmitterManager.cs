@@ -45,11 +45,10 @@ namespace CP_SDK.Unity.Components
         /// </summary>
         /// <param name="p_PoolSize">Pool size</param>
         /// <param name="p_Configs">Emitters configs</param>
-        /// <param name="p_PreviewMaterial">Preview material</param>
         /// <param name="p_Size">Base size</param>
         /// <param name="p_Speed">Base speed</param>
         /// <param name="p_Delay">Delay</param>
-        public void Configure(int p_PoolSize, List<EnhancedImageParticleEmitter.EmitterConfig> p_Configs, Material p_PreviewMaterial, float p_Size, float p_Speed, int p_Delay)
+        public void Configure(int p_PoolSize, List<EnhancedImageParticleEmitter.EmitterConfig> p_Configs, float p_Size, float p_Speed, int p_Delay)
         {
             Clear();
 
@@ -60,7 +59,8 @@ namespace CP_SDK.Unity.Components
             Speed   = p_Speed;
             Delay   = p_Delay;
 
-            var l_Material = EnhancedImageParticleMaterialProvider.GetMaterial();
+            var l_Material          = EnhancedImageParticleMaterialProvider.GetMaterial();
+            var l_PreviewMaterial   = EnhancedImageParticleMaterialProvider.GetPreviewMaterial();
 
             m_GroupPool = new Pool.ObjectPool<EnhancedImageParticleEmitterGroup>(
                 createFunc: () =>
@@ -70,7 +70,7 @@ namespace CP_SDK.Unity.Components
                     l_Group.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
                     l_Group.Manager = this;
                     l_Group.Setup(p_Configs, EnhancedImageParticleSystemProvider.GetParticleSystem());
-                    l_Group.SetupMaterial(l_Material, EnhancedImageParticleMaterialProvider.GetMaterialTexture(l_Material), p_PreviewMaterial);
+                    l_Group.SetupMaterial(l_Material, EnhancedImageParticleMaterialProvider.GetMaterialTexture(l_Material), l_PreviewMaterial);
                     l_Group.gameObject.SetActive(false);
 
                     return l_Group;
@@ -101,7 +101,7 @@ namespace CP_SDK.Unity.Components
             m_PreviewGroup.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             m_PreviewGroup.Manager = this;
             m_PreviewGroup.Setup(p_Configs, EnhancedImageParticleSystemProvider.GetParticleSystem());
-            m_PreviewGroup.SetupMaterial(l_Material, EnhancedImageParticleMaterialProvider.GetMaterialTexture(l_Material), p_PreviewMaterial);
+            m_PreviewGroup.SetupMaterial(l_Material, EnhancedImageParticleMaterialProvider.GetMaterialTexture(l_Material), l_PreviewMaterial);
             m_PreviewGroup.gameObject.SetActive(false);
         }
 

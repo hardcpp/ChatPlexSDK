@@ -248,7 +248,7 @@ namespace CP_SDK.Chat.Services.Twitch
                 {
                     case "response":
                         var resp = new PubSubTopicListenResponse(p_RawMessage);
-                        ChatPlexSDK.Logger.Warning("TwitchPubSub joined topic result " + resp.Successful);
+                        ///ChatPlexSDK.Logger.Warning("TwitchPubSub joined topic result " + resp.Successful);
                         break;
 
                     case "message":
