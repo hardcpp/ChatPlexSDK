@@ -10,7 +10,7 @@ namespace CP_SDK.OBS
     public class OBSModSettings : Config.JsonConfig<OBSModSettings>
     {
         [JsonProperty] internal bool Enabled = false;
-        [JsonProperty] internal string Server = "127.0.0.1:4444";
+        [JsonProperty] internal string Server = "127.0.0.1:4455";
         [JsonProperty] internal string Password = "";
 
         ////////////////////////////////////////////////////////////////////////////

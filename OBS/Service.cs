@@ -1,6 +1,9 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.WebSockets;
 
 namespace CP_SDK.OBS
 {
@@ -9,26 +12,24 @@ namespace CP_SDK.OBS
     /// </summary>
     public partial class Service
     {
-        /// <summary>
-        /// Client instance
-        /// </summary>
-        private static Network.WebSocketClient m_Client = null;
-        /// <summary>
-        /// Reference count
-        /// </summary>
-        private static int m_ReferenceCount = 0;
-        /// <summary>
-        /// Lock object
-        /// </summary>
-        private static object m_Object = new object();
-        /// <summary>
-        /// Scenes collection
-        /// </summary>
-        private static ConcurrentDictionary<string, Models.Scene> m_Scenes = new ConcurrentDictionary<string, Models.Scene>();
-        /// <summary>
-        /// Transitions
-        /// </summary>
-        private static string[] m_Transitions = new string[] { };
+        private static Network.WebSocketClient                          m_Client            = null;
+        private static int                                              m_ReferenceCount    = 0;
+        private static object                                           m_Object            = new object();
+        private static ConcurrentDictionary<string, Models.Scene>       m_Scenes            = new ConcurrentDictionary<string, Models.Scene>();
+        private static ConcurrentDictionary<string, Models.Transition>  m_Transitions       = new ConcurrentDictionary<string, Models.Transition>();
+
+        private enum EOpcode
+        {
+            SMSG_HELLO                  = 0,
+            CMSG_IDENTIFY               = 1,
+            SMSG_IDENTIFIED             = 2,
+
+            SMSG_EVENT                  = 5,
+            CMSG_REQUEST                = 6,
+            SMSG_REQUEST_RESPONSE       = 7,
+            CMSG_REQUEST_BATCH          = 8,
+            SMSG_REQUEST_BATCH_RESPONSE = 9
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -52,15 +53,27 @@ namespace CP_SDK.OBS
         /// On scene list refreshed
         /// </summary>
         public static event Action OnSceneListRefreshed;
+        /// <summary>
+        /// On transition list refreshed
+        /// </summary>
+        public static event Action OnTransitionListRefreshed;
 
         /// <summary>
-        /// On active scene changed(Old, New)
+        /// On active program scene changed(Old, New)
         /// </summary>
-        public static event Action<Models.Scene, Models.Scene> OnActiveSceneChanged;
+        public static event Action<Models.Scene, Models.Scene> OnActiveProgramSceneChanged;
+        /// <summary>
+        /// On active preview scene changed(Old, New)
+        /// </summary>
+        public static event Action<Models.Scene, Models.Scene> OnActivePreviewSceneChanged;
+        /// <summary>
+        /// On active transition changed(Old, New)
+        /// </summary>
+        public static event Action<Models.Transition, Models.Transition> OnActiveTransitionChanged;
         /// <summary>
         /// On source visibility changed (Scene, Source, IsVisible)
         /// </summary>
-        public static event Action<Models.Scene, Models.Source, bool> OnSourceVisibilityChanged;
+        public static event Action<Models.Scene, Models.SceneItem, bool> OnSourceVisibilityChanged;
         /// <summary>
         /// On studio mode change(Active, Scene)
         /// </summary>
@@ -74,43 +87,17 @@ namespace CP_SDK.OBS
         /// </summary>
         public static event Action<bool> OnRecordingStatusChanged;
 
-        /// <summary>
-        /// Status of the service
-        /// </summary>
-        public static EStatus Status { get; private set; } = EStatus.Disconnected;
-        /// <summary>
-        /// Is in studio mode?
-        /// </summary>
-        public static bool IsInStudioMode { get; private set; } = false;
-        /// <summary>
-        /// Is in streaming mode?
-        /// </summary>
-        public static bool IsStreaming { get; private set; } = false;
-        /// <summary>
-        /// Is recording
-        /// </summary>
-        public static bool IsRecording { get; private set; } = false;
-        /// <summary>
-        /// Last recorded file name
-        /// </summary>
-        public static string LastRecordedFileName { get; private set; } = string.Empty;
-        /// <summary>
-        /// Active scene
-        /// </summary>
-        public static Models.Scene ActiveScene { get; private set; } = null;
-        /// <summary>
-        /// Active preview scene
-        /// </summary>
-        public static Models.Scene ActivePreviewScene { get; private set; } = null;
+        public static EStatus           Status                  { get; private set; } = EStatus.Disconnected;
+        public static bool              IsInStudioMode          { get; private set; } = false;
+        public static bool              IsStreaming             { get; private set; } = false;
+        public static bool              IsRecording             { get; private set; } = false;
+        public static string            LastRecordedFileName    { get; private set; } = string.Empty;
+        public static Models.Scene      ActiveProgramScene      { get; private set; } = null;
+        public static Models.Scene      ActivePreviewScene      { get; private set; } = null;
+        public static Models.Transition ActiveTransition        { get; private set; } = null;
 
-        /// <summary>
-        /// Scenes collection
-        /// </summary>
-        public static ConcurrentDictionary<string, Models.Scene> Scenes => m_Scenes;
-        /// <summary>
-        /// Transitions
-        /// </summary>
-        public static string[] Transitions => m_Transitions;
+        public static ConcurrentDictionary<string, Models.Scene>        Scenes      => m_Scenes;
+        public static ConcurrentDictionary<string, Models.Transition>   Transitions => m_Transitions;
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -235,7 +222,7 @@ namespace CP_SDK.OBS
             IsInStudioMode      = false;
             IsStreaming         = false;
             IsRecording         = false;
-            ActiveScene         = null;
+            ActiveProgramScene         = null;
             ActivePreviewScene  = null;
 
             m_Scenes.Clear();
@@ -252,14 +239,13 @@ namespace CP_SDK.OBS
             ChatPlexSDK.Logger.Info("[CP_SDK.OBS][Service.WebSocket_OnOpen]");
 
             Status = EStatus.Authing;
-            SendRequest("GetAuthRequired");
         }
         /// <summary>
         /// On web socket close
         /// </summary>
-        private static void WebSocket_OnClose()
+        private static void WebSocket_OnClose(WebSocketCloseStatus? p_CloseStatus, string p_CloseStatusDescription)
         {
-            ChatPlexSDK.Logger.Info("[CP_SDK.OBS][Service.WebSocket_OnClose]");
+            ChatPlexSDK.Logger.Info($"[CP_SDK.OBS][Service.WebSocket_OnClose] {p_CloseStatus}:{p_CloseStatusDescription}");
 
             if (Status != EStatus.AuthRejected)
                 Status = EStatus.Disconnected;
@@ -276,79 +262,18 @@ namespace CP_SDK.OBS
 
             try
             {
-                var l_JObject = JObject.Parse(p_Message);
+                var l_JObject   = JObject.Parse(p_Message);
+                var l_Opcode    = (EOpcode)l_JObject.Value<int>("op");
+                var l_Data      = l_JObject["d"] as JObject;
 
-                if (Status == EStatus.Authing)
+                switch (l_Opcode)
                 {
-                    if (l_JObject.ContainsKey("error") &&
-                        (  l_JObject["error"].Value<string>() == "Not Authenticated"
-                        || l_JObject["error"].Value<string>() == "Authentication Failed."))
-                    {
-                        Status = EStatus.AuthRejected;
-                        m_Client.Disconnect();
-                        return;
-                    }
+                    case EOpcode.SMSG_HELLO:                    Handle_SMSG_HELLO(l_Data);                  break;
+                    case EOpcode.SMSG_IDENTIFIED:               Handle_SMSG_IDENTIFIED(l_Data);             break;
 
-                    if (   l_JObject.ContainsKey("message-id") && l_JObject["message-id"]?.Value<string>() == "Authenticate"
-                        && l_JObject.ContainsKey("status"))
-                    {
-                        if (l_JObject["status"]?.Value<string>() == "ok")
-                        {
-                            Status = EStatus.Connected;
-                            DoInitialQueries();
-                            return;
-                        }
-                        else
-                        {
-                            Status = EStatus.AuthRejected;
-                            m_Client.Disconnect();
-                            return;
-                        }
-                    }
-                }
-
-                if (l_JObject.ContainsKey("message-id"))
-                {
-                    var l_MessageID = l_JObject["message-id"]?.Value<string>() ?? "None";
-
-                    switch (l_MessageID)
-                    {
-                        case "GetAuthRequired":     Handle_GetAuthRequired(l_JObject);      break;
-                        case "GetSceneList":        Handle_GetSceneList(l_JObject);         break;
-                        case "GetPreviewScene":     Handle_GetPreviewScene(l_JObject);      break;
-                        case "GetTransitionList":   Handle_GetTransitionList(l_JObject);    break;
-                        case "GetStreamingStatus":  Handle_GetStreamingStatus(l_JObject);   break;
-                        case "GetRecordingStatus":  Handle_GetRecordingStatus(l_JObject);   break;
-                    }
-                }
-                else if (l_JObject.ContainsKey("update-type"))
-                {
-                    var l_UpdateType = l_JObject["update-type"]?.Value<string>() ?? "None";
-
-#if DEBUG
-                    ChatPlexSDK.Logger.Info("[CP_SDK.OBS][Service.WebSocket_OnMessageReceived] UpdateType: " + l_UpdateType);
-#endif
-                    switch (l_UpdateType)
-                    {
-                        case "SwitchScenes":              Update_SwitchScenes(l_JObject);                 break;
-                        case "SceneItemVisibilityChanged":Update_SceneItemVisibilityChanged(l_JObject);   break;
-
-                        case "StudioModeSwitched":        Update_StudioModeSwitched(l_JObject);           break;
-                        case "PreviewSceneChanged":       Update_PreviewSceneChanged(l_JObject);          break;
-
-                        case "StreamStarted":             Update_StreamStarted(l_JObject);                break;
-                        case "StreamStopped":             Update_StreamStopped(l_JObject);                break;
-
-                        case "RecordingStarted":          Update_RecordingStarted(l_JObject);             break;
-                        case "RecordingStopped":          Update_RecordingStopped(l_JObject);             break;
-#if DEBUG
-                        default:
-                            ChatPlexSDK.Logger.Error("[CP_SDK.OBS][Service.WebSocket_OnMessageReceived] Unhandled:");
-                            ChatPlexSDK.Logger.Error(p_Message);
-                            break;
-#endif
-                    }
-
+                    case EOpcode.SMSG_EVENT:                    Handle_SMSG_EVENT(l_Data);                  break;
+                    case EOpcode.SMSG_REQUEST_RESPONSE:         Handle_SMSG_REQUEST_RESPONSE(l_Data);       break;
+                    case EOpcode.SMSG_REQUEST_BATCH_RESPONSE:   Handle_SMSG_REQUEST_BATCH_RESPONSE(l_Data); break;
                 }
             }
             catch (System.Exception l_Exception)
@@ -362,33 +287,77 @@ namespace CP_SDK.OBS
         /// </summary>
         private static void WebSocket_OnError()
         {
-            ChatPlexSDK.Logger.Info("[CP_SDK.OBS][Service.WebSocket_OnError]");
+            ChatPlexSDK.Logger.Info($"[CP_SDK.OBS][Service.WebSocket_OnError]");
         }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        /// Do initial queries
+        /// Send a payload
         /// </summary>
-        private static void DoInitialQueries()
+        /// <param name="p_Opcode">Opcode</param>
+        /// <param name="p_Data">Data</param>
+        private static void SendPayload(EOpcode p_Opcode, JObject p_Data)
         {
-            SendRequest("GetSceneList");
-            SendRequest("GetPreviewScene");
-            SendRequest("GetTransitionList");
-            SendRequest("GetStreamingStatus");
-            SendRequest("GetRecordingStatus");
+            m_Client.SendMessage(new JObject()
+            {
+                ["d"] = p_Data,
+                ["op"] = (int)p_Opcode
+            }.ToString(Newtonsoft.Json.Formatting.None));
         }
         /// <summary>
-        /// Send basic request to OBS
+        /// Send a request
         /// </summary>
         /// <param name="p_Type">Request type</param>
-        private static void SendRequest(string p_Type)
+        /// <param name="p_ID">Request ID</param>
+        /// <param name="p_Data">Request data</param>
+        private static void SendRequest(string p_Type, string p_ID = null, JObject p_Data = null)
         {
             if (!m_Client.IsConnected)
                 return;
 
-            m_Client.SendMessage("{\"request-type\": \"" + p_Type + "\", \"message-id\": \"" + p_Type + "\" }");
+            var l_Payload = new JObject()
+            {
+                ["requestType"] = p_Type,
+                ["requestId"]   = !string.IsNullOrEmpty(p_ID) ? p_ID : Guid.NewGuid().ToString()
+            };
+
+            if (p_Data != null)
+                l_Payload["requestData"] = p_Data;
+
+            SendPayload(EOpcode.CMSG_REQUEST, l_Payload);
+        }
+        /// <summary>
+        /// Send requests in batch
+        /// </summary>
+        /// <param name="p_RequestID">ID of the request</param>
+        /// <param name="p_Requests">List of request type + id + data</param>
+        private static void SendRequestBatch(string p_RequestID, List<(string Type, string ID, JObject Data)> p_Requests)
+        {
+            if (!m_Client.IsConnected)
+                return;
+
+            m_Client.SendMessage(new JObject()
+            {
+                ["d"] = new JObject()
+                {
+                    ["requestId"]       = !string.IsNullOrEmpty(p_RequestID) ? p_RequestID : Guid.NewGuid().ToString(),
+                    ["haltOnFailure"]   = false,
+                    ["requests"]        = new JArray(p_Requests.Select((x) => {
+                        var l_Obj = new JObject() {
+                            ["requestType"] = x.Type,
+                            ["requestId"]   = !string.IsNullOrEmpty(x.ID) ? x.ID : Guid.NewGuid().ToString()
+                        };
+
+                        if (x.Data != null)
+                            l_Obj["requestData"] = x.Data;
+
+                        return l_Obj;
+                    }))
+                },
+                ["op"] = (int)EOpcode.CMSG_REQUEST_BATCH
+            }.ToString(Newtonsoft.Json.Formatting.None));
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -403,24 +372,27 @@ namespace CP_SDK.OBS
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        private static JObject s_SetCurrentScene_Request = new JObject()
-        {
-            ["request-type"]    = "SetCurrentScene",
-            ["scene-name"]      = "",
-            ["message-id"]      = ""
-        };
         /// <summary>
-        /// Change active scene
+        /// Change current program scene
         /// </summary>
         /// <param name="p_Scene">Scene to switch to</param>
-        internal static void SwitchToScene(Models.Scene p_Scene)
+        public static void SetCurrentProgramScene(Models.Scene p_Scene)
         {
             if (p_Scene == null)
                 return;
 
-            s_SetCurrentScene_Request["scene-name"] = p_Scene.name;
+            SendRequest("SetCurrentProgramScene", null, new JObject() { ["sceneUuid"] = p_Scene.sceneUuid });
+        }
+        /// <summary>
+        /// Change current preview scene
+        /// </summary>
+        /// <param name="p_Scene">Scene to switch to</param>
+        public static void SetCurrentPreviewScene(Models.Scene p_Scene)
+        {
+            if (p_Scene == null)
+                return;
 
-            m_Client.SendMessage(s_SetCurrentScene_Request.ToString(Newtonsoft.Json.Formatting.None));
+            SendRequest("SetCurrentPreviewScene", null, new JObject() { ["sceneUuid"] = p_Scene.sceneUuid });
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -429,75 +401,45 @@ namespace CP_SDK.OBS
         /// <summary>
         /// Enable studio mode
         /// </summary>
-        public static void EnableStudioMode() => SendRequest("EnableStudioMode");
+        public static void EnableStudioMode() => SendRequest("SetStudioModeEnabled", null, new JObject() { ["studioModeEnabled"] = true });
         /// <summary>
         /// Disable studio mode
         /// </summary>
-        public static void DisableStudioMode() => SendRequest("DisableStudioMode");
-        private static JObject s_SetPreviewScene_Request = new JObject()
-        {
-            ["request-type"]    = "SetPreviewScene",
-            ["scene-name"]      = "",
-            ["message-id"]      = ""
-        };
-        /// <summary>
-        /// Change active preview scene
-        /// </summary>
-        /// <param name="p_Scene">Scene to switch to</param>
-        internal static void SwitchPreviewToScene(Models.Scene p_Scene)
-        {
-            if (p_Scene == null)
-                return;
+        public static void DisableStudioMode() => SendRequest("SetStudioModeEnabled", null, new JObject() { ["studioModeEnabled"] = false });
 
-            s_SetPreviewScene_Request["scene-name"] = p_Scene.name;
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
 
-            m_Client.SendMessage(s_SetPreviewScene_Request.ToString(Newtonsoft.Json.Formatting.None));
-        }
-        private static JObject s_TransitionToProgram_Request = new JObject()
-        {
-            ["request-type"]    = "TransitionToProgram",
-            ["message-id"]      = ""
-        };
-        private static JObject s_TransitionToProgram_WidthTransition = new JObject()
-        {
-
-        };
         /// <summary>
         /// Preview transition to scene
         /// </summary>
-        /// <param name="p_Duration">Transition duration</param>
-        /// <param name="p_TransitionName">Transition name</param>
-        public static void PreviewTransitionToScene(int p_Duration = -1, string p_TransitionName = null)
+        /// <param name="p_DurationMS">Transition duration</param>
+        /// <param name="p_Transition">Transition</param>
+        public static void CustomStudioModeTransition(int p_DurationMS = -1, Models.Transition p_Transition = null)
         {
-            if (p_Duration > -1 || p_TransitionName != null)
-            {
-                if (p_Duration > -1)
-                    s_TransitionToProgram_WidthTransition["duration"] = p_Duration;
-                else
-                    s_TransitionToProgram_WidthTransition.Remove("duration");
+            var l_SubRequest = new List<(string Type, string ID, JObject Data)>();
 
-                if (p_TransitionName != null)
-                    s_TransitionToProgram_WidthTransition["name"] = p_TransitionName;
-                else
-                    s_TransitionToProgram_WidthTransition.Remove("name");
+            if (p_Transition != null)
+                l_SubRequest.Add(("SetCurrentSceneTransition", null, new JObject() { ["transitionName"] = p_Transition.transitionName }));
 
-                s_TransitionToProgram_Request["with-transition"] = s_TransitionToProgram_WidthTransition;
-            }
+            if (p_DurationMS != -1)
+                l_SubRequest.Add(("SetCurrentSceneTransitionDuration", null, new JObject() { ["transitionDuration"] = p_DurationMS }));
 
-            m_Client.SendMessage(s_TransitionToProgram_Request.ToString(Newtonsoft.Json.Formatting.None));
+            l_SubRequest.Add(("TriggerStudioModeTransition", null, null));
+            SendRequestBatch(null, l_SubRequest);
         }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        /// Start streaming
+        /// Start stream
         /// </summary>
-        public static void StartStreaming() => SendRequest("StartStreaming");
+        public static void StartStream() => SendRequest("StartStream");
         /// <summary>
         /// Stop streaming
         /// </summary>
-        public static void StopStreaming() => SendRequest("StopStreaming");
+        public static void StopStream() => SendRequest("StopStream");
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -505,77 +447,126 @@ namespace CP_SDK.OBS
         /// <summary>
         /// Start recording
         /// </summary>
-        public static void StartRecording() => SendRequest("StartRecording");
+        public static void StartRecording() => SendRequest("ToggleRecord", null, new JObject() { ["outputActive"] = true });
         /// <summary>
         /// Stop recording
         /// </summary>
-        public static void StopRecording() => SendRequest("StopRecording");
-        private static JObject s_SetFilenameFormatting_Request = new JObject()
-        {
-            ["request-type"]        = "SetFilenameFormatting",
-            ["filename-formatting"] = "",
-            ["message-id"]          = ""
-        };
+        public static void StopRecording() => SendRequest("ToggleRecord", null, new JObject() { ["outputActive"] = false });
         /// <summary>
         /// Set record filename format
         /// </summary>
         /// <param name="p_Format">New format</param>
-        public static void SetRecordFilenameFormat(string p_Format)
+        public static void SetProfileParameter_Output_FilenameFormatting(string p_Format)
         {
-            s_SetFilenameFormatting_Request["filename-formatting"] = p_Format;
-            m_Client.SendMessage(s_SetFilenameFormatting_Request.ToString(Newtonsoft.Json.Formatting.None));
+            SendRequest("SetProfileParameter", null, new JObject()
+            {
+                ["parameterCategory"]   = "Output",
+                ["parameterName"]       = "FilenameFormatting",
+                ["parameterValue"]      = p_Format
+            });
         }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        private static JObject s_SetSourceVisible_Request = new JObject()
-        {
-            ["request-type"]    = "SetSceneItemProperties",
-            ["scene-name"]      = "",
-            ["item"]            = "",
-            ["visible"]         = true,
-            ["message-id"]      = ""
-        };
         /// <summary>
-        /// Set source visibility
+        /// Set scene item enabled
         /// </summary>
-        /// <param name="p_Scene">Scene that contain the source</param>
-        /// <param name="p_Source">Source instance</param>
-        /// <param name="p_Visibility">New visibility</param>
-        internal static void SetSourceVisible(Models.Scene p_Scene, Models.Source p_Source, bool p_Visibility)
+        /// <param name="p_Scene">Scene that contain the source item</param>
+        /// <param name="p_SourceItem">Source instance</param>
+        /// <param name="p_Enabled">New visibility</param>
+        public static void SetSceneItemEnabled(Models.Scene p_Scene, Models.SceneItem p_SourceItem, bool p_Enabled)
         {
-            if (p_Scene == null || p_Source == null)
+            if (p_Scene == null || p_SourceItem == null)
                 return;
 
-            s_SetSourceVisible_Request["scene-name"]    = p_Scene.name;
-            s_SetSourceVisible_Request["item"]          = p_Source.name;
-            s_SetSourceVisible_Request["visible"]       = p_Visibility;
-
-            m_Client.SendMessage(s_SetSourceVisible_Request.ToString(Newtonsoft.Json.Formatting.None));
+            SendRequest("SetSceneItemEnabled", null, new JObject() {
+                ["sceneUuid"]           = p_Scene.sceneUuid,
+                ["sceneItemId"]         = p_SourceItem.sceneItemId,
+                ["sceneItemEnabled"]    = p_Enabled
+            });
         }
-        private static JObject s_SetSourceMuted_Request = new JObject()
-        {
-            ["request-type"]    = "SetMute",
-            ["source"]          = "",
-            ["mute"]            = true,
-            ["message-id"]      = ""
-        };
         /// <summary>
-        /// Set source muted
+        /// Set input muted
         /// </summary>
-        /// <param name="p_Scene">Scene that contain the source</param>
-        /// <param name="p_Source">Source instance</param>
+        /// <param name="p_Scene">Scene that contain the source item</param>
+        /// <param name="p_SourceItem">Source instance</param>
         /// <param name="p_Muted">New state</param>
-        internal static void SetSourceMuted(Models.Scene p_Scene, Models.Source p_Source, bool p_Muted)
+        public static void SetInputMute(Models.Scene p_Scene, Models.SceneItem p_SourceItem, bool p_Muted)
         {
-            if (p_Scene == null || p_Source == null)
+            if (p_Scene == null || p_SourceItem == null)
                 return;
 
-            s_SetSourceMuted_Request["source"]  = p_Source.name;
-            s_SetSourceMuted_Request["mute"]    = p_Muted;
+            SendRequest("SetInputMute", null, new JObject()
+            {
+                ["inputUuid"]   = p_SourceItem.sourceUuid,
+                ["inputMuted"]  = p_Muted
+            });
+        }
+        /// <summary>
+        /// Toggle input mute state
+        /// </summary>
+        /// <param name="p_Scene">Scene that contain the source item</param>
+        /// <param name="p_SourceItem">Source instance</param>
+        public static void ToggleInputMute(Models.Scene p_Scene, Models.SceneItem p_SourceItem)
+        {
+            if (p_Scene == null || p_SourceItem == null)
+                return;
 
-            m_Client.SendMessage(s_SetSourceMuted_Request.ToString(Newtonsoft.Json.Formatting.None));
+            SendRequest("ToggleInputMute", null, new JObject()
+            {
+                ["inputUuid"] = p_SourceItem.sourceUuid,
+            });
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Try get scene by name
+        /// </summary>
+        /// <param name="p_SceneName">Scene name</param>
+        /// <param name="p_Scene">Out scene</param>
+        /// <returns></returns>
+        public static bool TryGetSceneByName(string p_SceneName, out Models.Scene p_Scene)
+        {
+            p_Scene = null;
+            if (p_SceneName == "<i>None</i>")
+                return false;
+
+            foreach (var l_KVP in m_Scenes)
+            {
+                if (l_KVP.Value.sceneName != p_SceneName)
+                    continue;
+
+                p_Scene = l_KVP.Value;
+                return true;
+            }
+
+            return false;
+        }
+        /// <summary>
+        /// Try get transition by name
+        /// </summary>
+        /// <param name="p_TransitionName">Transition name</param>
+        /// <param name="p_Transition">Out scene</param>
+        /// <returns></returns>
+        public static bool TryGetTransitionByName(string p_TransitionName, out Models.Transition p_Transition)
+        {
+            p_Transition = null;
+            if (p_TransitionName == "<i>None</i>")
+                return false;
+
+            foreach (var l_KVP in m_Transitions)
+            {
+                if (l_KVP.Value.transitionName != p_TransitionName)
+                    continue;
+
+                p_Transition = l_KVP.Value;
+                return true;
+            }
+
+            return false;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -584,16 +575,33 @@ namespace CP_SDK.OBS
         /// <summary>
         /// Deserialize scene
         /// </summary>
-        /// <param name="p_Name">Scene name</param>
+        /// <param name="p_SceneUUID">Scene UUID</param>
         /// <param name="p_Scene">Scene content</param>
-        private static void DeserializeScene(string p_Name, JObject p_Scene)
+        /// <param name="p_CreateIfMissing">Create if missing</param>
+        private static void DeserializeScene(string p_SceneUUID, JObject p_Scene, bool p_CreateIfMissing = true)
         {
-            if (m_Scenes.TryGetValue(p_Name, out var l_Existing))
+            if (m_Scenes.TryGetValue(p_SceneUUID, out var l_Existing))
                 l_Existing.Deserialize(p_Scene, true);
-            else
+            else if (p_CreateIfMissing)
             {
                 var l_NewScene = Models.Scene.FromJObject(p_Scene);
-                m_Scenes.TryAdd(p_Name, l_NewScene);
+                m_Scenes.TryAdd(p_SceneUUID, l_NewScene);
+            }
+        }
+        /// <summary>
+        /// Deserialize transition
+        /// </summary>
+        /// <param name="p_TransitionUUID">Scene UUID</param>
+        /// <param name="p_Transition">Scene content</param>
+        /// <param name="p_CreateIfMissing">Create if missing</param>
+        private static void DeserializeTransition(string p_TransitionUUID, JObject p_Transition, bool p_CreateIfMissing = true)
+        {
+            if (m_Transitions.TryGetValue(p_TransitionUUID, out var l_Existing))
+                l_Existing.Deserialize(p_Transition);
+            else if (p_CreateIfMissing)
+            {
+                var l_NewTransition = Models.Transition.FromJObject(p_Transition);
+                m_Transitions.TryAdd(p_TransitionUUID, l_NewTransition);
             }
         }
     }

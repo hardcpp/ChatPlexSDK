@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 namespace CP_SDK.OBS.Models
 {
@@ -14,8 +15,10 @@ namespace CP_SDK.OBS.Models
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        public string       name    { get; private set; } = "";
-        public List<Source> sources { get; private set; } = null;
+        public string           sceneUuid   { get; private set; } = "";
+        public string           sceneName   { get; private set; } = "";
+        public int              sceneIndex  { get; private set; } = -1;
+        public List<SceneItem>  sceneItems  { get; private set; } = null;
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -32,10 +35,10 @@ namespace CP_SDK.OBS.Models
         internal static Scene FromJObject(JObject p_Object)
         {
             var l_Scene = s_Pool.Get();
-            if (l_Scene.sources == null)
+            if (l_Scene.sceneItems == null)
             {
-                l_Scene.sources = Pool.MTListPool<Source>.Get();
-                l_Scene.sources.Clear();
+                l_Scene.sceneItems = Pool.MTListPool<SceneItem>.Get();
+                l_Scene.sceneItems.Clear();
             }
 
             l_Scene.Deserialize(p_Object);
@@ -50,14 +53,14 @@ namespace CP_SDK.OBS.Models
         {
             s_Pool.Release(p_Scene);
 
-            if (p_Scene.sources != null)
+            if (p_Scene.sceneItems != null)
             {
                 try
                 {
-                    for (int l_I = 0; l_I < p_Scene.sources.Count; ++l_I)
-                        Source.Release(p_Scene.sources[l_I]);
+                    for (int l_I = 0; l_I < p_Scene.sceneItems.Count; ++l_I)
+                        SceneItem.Release(p_Scene.sceneItems[l_I]);
 
-                    p_Scene.sources.Clear();
+                    p_Scene.sceneItems.Clear();
                 }
                 catch (System.Exception l_Exception)
                 {
@@ -65,10 +68,10 @@ namespace CP_SDK.OBS.Models
                     ChatPlexSDK.Logger.Error(l_Exception);
                 }
 
-                Pool.MTListPool<Source>.Release(p_Scene.sources);
+                Pool.MTListPool<SceneItem>.Release(p_Scene.sceneItems);
             }
 
-            p_Scene.sources = null;
+            p_Scene.sceneItems = null;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -83,48 +86,54 @@ namespace CP_SDK.OBS.Models
         {
             if (!p_SourcesOnly)
             {
-                name = p_Object["name"]?.Value<string>() ?? (p_Object["scene-name"]?.Value<string>() ?? "");
+                sceneUuid    = p_Object["sceneUuid"]?.Value<string>() ?? "";
+                sceneName    = p_Object["sceneName"]?.Value<string>() ?? "";
+                sceneIndex   = p_Object["sceneIndex"]?.Value<int>()   ?? 0;
             }
 
-            var l_Sources       = p_Object.ContainsKey("sources") && p_Object["sources"].Type == JTokenType.Array ? p_Object["sources"] as JArray : null;
-            var l_SourcesCount  = l_Sources?.Count;
-            var l_OldList       = sources;
-            var l_NewList       = Pool.MTListPool<Source>.Get();
+            var l_SceneItems        = p_Object.ContainsKey("sceneItems") && p_Object["sceneItems"].Type == JTokenType.Array ? p_Object["sceneItems"] as JArray : null;
+            var l_SceneItemCount    = l_SceneItems?.Count;
 
-            try
+            if (l_SceneItems != null)
             {
-                for (int l_I = 0; l_I < l_SourcesCount; ++l_I)
-                {
-                    var l_JObject   = l_Sources[l_I] as JObject;
-                    var l_Existing  = l_OldList.FirstOrDefault(x => x.name == (l_JObject["name"]?.Value<string>() ?? null));
+                var l_OldList   = sceneItems;
+                var l_NewList   = Pool.MTListPool<SceneItem>.Get();
 
-                    if (l_Existing != null)
+                try
+                {
+                    for (int l_I = 0; l_I < l_SceneItemCount; ++l_I)
                     {
-                        l_Existing.Deserialize(this, l_JObject);
-                        l_NewList.Add(l_Existing);
-                        l_OldList.Remove(l_Existing);
-                    }
-                    else
-                    {
-                        var l_New = Source.FromJObject(this, l_Sources[l_I] as JObject);
-                        l_NewList.Add(l_New);
+                        var l_JObject   = l_SceneItems[l_I] as JObject;
+                        var l_Existing  = l_OldList.FirstOrDefault(x => x.sourceUuid == (l_JObject["sourceUuid"]?.Value<string>() ?? null));
+
+                        if (l_Existing != null)
+                        {
+                            l_Existing.Deserialize(this, l_JObject);
+                            l_NewList.Add(l_Existing);
+                            l_OldList.Remove(l_Existing);
+                        }
+                        else
+                        {
+                            var l_New = SceneItem.FromJObject(this, l_SceneItems[l_I] as JObject);
+                            l_NewList.Add(l_New);
+                        }
                     }
                 }
-            }
-            catch (System.Exception l_Exception)
-            {
-                ChatPlexSDK.Logger.Error("[CP_SDK.OBS.Models][Source.Deserialize] Error:");
-                ChatPlexSDK.Logger.Error(l_Exception);
-            }
-            finally
-            {
-                sources = l_NewList;
+                catch (System.Exception l_Exception)
+                {
+                    ChatPlexSDK.Logger.Error("[CP_SDK.OBS.Models][Source.Deserialize] Error:");
+                    ChatPlexSDK.Logger.Error(l_Exception);
+                }
+                finally
+                {
+                    sceneItems = l_NewList;
 
-                for (int l_I = 0; l_I < l_OldList.Count; ++l_I)
-                    Source.Release(l_OldList[l_I]);
+                    for (int l_I = 0; l_I < l_OldList.Count; ++l_I)
+                        SceneItem.Release(l_OldList[l_I]);
 
-                l_OldList.Clear();
-                Pool.MTListPool<Source>.Release(l_OldList);
+                    l_OldList.Clear();
+                    Pool.MTListPool<SceneItem>.Release(l_OldList);
+                }
             }
         }
 
@@ -134,35 +143,41 @@ namespace CP_SDK.OBS.Models
         /// <summary>
         /// Set as active scene
         /// </summary>
-        public void SwitchTo()
-            => Service.SwitchToScene(this);
+        public void SetCurrentProgram()
+            => Service.SetCurrentProgramScene(this);
         /// <summary>
         /// Set as active preview scene
         /// </summary>
-        public void SetAsPreview()
-            => Service.SwitchPreviewToScene(this);
+        public void SetCurrentPreview()
+            => Service.SetCurrentPreviewScene(this);
         /// <summary>
         /// Get source by name
         /// </summary>
         /// <param name="p_Name">Name of the source</param>
         /// <returns></returns>
-        public Source GetSourceByName(string p_Name)
+        public SceneItem GetSourceItemByName(string p_Name)
         {
-            for (int l_I = 0; l_I < sources.Count; ++l_I)
+            for (int l_I = 0; l_I < sceneItems.Count; ++l_I)
             {
-                var l_Source = sources[l_I];
-                if (l_Source.name == p_Name)
+                var l_Source = sceneItems[l_I];
+                if (l_Source.sourceName == p_Name)
                     return l_Source;
+            }
 
-                if (l_Source.groupChildren.Count != 0)
-                {
-                    for (int l_Y = 0; l_Y < l_Source.groupChildren.Count; ++l_Y)
-                    {
-                        var l_SubSource = l_Source.groupChildren[l_Y];
-                        if (l_SubSource.name == p_Name)
-                            return l_SubSource;
-                    }
-                }
+            return null;
+        }
+        /// <summary>
+        /// Get source by scene item ID
+        /// </summary>
+        /// <param name="p_SceneItemID">ID of the source</param>
+        /// <returns></returns>
+        public SceneItem GetSourceItemByID(int p_SceneItemID)
+        {
+            for (int l_I = 0; l_I < sceneItems.Count; ++l_I)
+            {
+                var l_Source = sceneItems[l_I];
+                if (l_Source.sceneItemId == p_SceneItemID)
+                    return l_Source;
             }
 
             return null;

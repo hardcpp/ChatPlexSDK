@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,7 +49,7 @@ namespace CP_SDK.Network
         /// <summary>
         /// On connection close
         /// </summary>
-        public event Action OnClose;
+        public event Action<WebSocketCloseStatus?, string> OnClose;
         /// <summary>
         /// On error
         /// </summary>
@@ -86,7 +88,7 @@ namespace CP_SDK.Network
         /// Connect
         /// </summary>
         /// <param name="p_URI">Socket endpoint</param>
-        public void Connect(string p_URI)
+        public void Connect(string p_URI, Dictionary<string, string> p_Headers = null)
         {
             lock (m_LockObject)
             {
@@ -110,6 +112,12 @@ namespace CP_SDK.Network
                             m_Client    = new System.Net.WebSockets.ClientWebSocket();
                             m_StartTime = DateTime.UtcNow;
 
+                            if (p_Headers != null)
+                            {
+                                foreach (var l_KVP in p_Headers)
+                                    m_Client.Options.SetRequestHeader(l_KVP.Key, l_KVP.Value);
+                            }
+
                             try
                             {
                                 await m_Client.ConnectAsync(new Uri(p_URI), m_CancellationToken.Token).ConfigureAwait(false);
@@ -132,12 +140,20 @@ namespace CP_SDK.Network
                                     {
                                         var l_Received = await m_Client.ReceiveAsync(l_ReceiveArraySegment, CancellationToken.None).ConfigureAwait(false);
 
-                                        l_Message += Encoding.UTF8.GetString(m_ReceiveBuffer, l_ReceiveArraySegment.Offset, l_Received.Count);
-
-                                        if (l_Received.EndOfMessage)
+                                        if (l_Received.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
                                         {
-                                            Client_OnMessageReceived(this, l_Message);
-                                            l_Message = string.Empty;
+                                            l_Message += Encoding.UTF8.GetString(m_ReceiveBuffer, l_ReceiveArraySegment.Offset, l_Received.Count);
+
+                                            if (l_Received.EndOfMessage)
+                                            {
+                                                Client_OnMessageReceived(this, l_Message);
+                                                l_Message = string.Empty;
+                                            }
+                                        }
+                                        else if (l_Received.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+                                        {
+                                            Client_OnClose(this, l_Received.CloseStatus, l_Received.CloseStatusDescription);
+                                            return;
                                         }
                                     }
                                 }
@@ -150,12 +166,12 @@ namespace CP_SDK.Network
                                     }
                                 }
 
-                                Client_OnClose(this);
+                                Client_OnClose(this, WebSocketCloseStatus.ProtocolError, "Internal error");
                             }
                             else if (!m_Disconnecting)
                                 Client_OnError(this);
                             else
-                                Client_OnClose(this);
+                                Client_OnClose(this, WebSocketCloseStatus.NormalClosure, string.Empty);
                         }
                         catch (TaskCanceledException)
                         {
@@ -286,10 +302,10 @@ namespace CP_SDK.Network
         /// On client closed
         /// </summary>
         /// <param name="p_Sender">Event sender</param>
-        private void Client_OnClose(object p_Sender)
+        private void Client_OnClose(object p_Sender, WebSocketCloseStatus? p_CloseStatus, string p_CloseStatusDescription)
         {
             ChatPlexSDK.Logger.Debug($"[CP_SDK.Network][WebSocketClient.Client_OnClose] WebSocket connection to {m_URI} was closed");
-            OnClose?.Invoke();
+            OnClose?.Invoke(p_CloseStatus, p_CloseStatusDescription);
 
             if (!m_Disconnecting)
                 TryHandleReconnect();
