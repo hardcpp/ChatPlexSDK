@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using CP_SDK.OBS.Models;
+using Newtonsoft.Json.Linq;
+using System.Linq;
 
 namespace CP_SDK.OBS
 {
@@ -78,26 +80,35 @@ namespace CP_SDK.OBS
         /// <param name="p_JObject">Reply</param>
         private static void HandleEvent_SceneItemEnableStateChanged(JObject p_JObject)
         {
-            var l_SceneUUID = p_JObject["sceneUuid"]?.Value<string>() ?? null;
-            if (m_Scenes.TryGetValue(l_SceneUUID, out var l_Scene))
-            {
-                var l_SceneItemID = p_JObject["sceneItemId"]?.Value<int>() ?? -1;
-                var l_SourceItem = l_Scene.GetSourceItemByID(l_SceneItemID);
+            var l_SceneUUID     = p_JObject["sceneUuid"]?.Value<string>() ?? null;
+            var l_SceneName     = p_JObject["sceneName"]?.Value<string>() ?? null;
+            var l_SceneItemID   = p_JObject["sceneItemId"]?.Value<int>() ?? -1;
+            var l_SourceItem    = null as SceneItem;
 
-                if (l_SourceItem != null)
+            if (!m_Scenes.TryGetValue(l_SceneUUID, out var l_Scene))
+            {
+                foreach (var l_CurrentScene in m_Scenes.Values)
                 {
-                    l_SourceItem.sceneItemEnabled = p_JObject["sceneItemEnabled"]?.Value<bool>() ?? true;
-                    OnSourceVisibilityChanged?.Invoke(l_Scene, l_SourceItem, l_SourceItem.sceneItemEnabled);
-                }
-                else
-                {
-                    ChatPlexSDK.Logger.Error("[CP_SDK.OBS][Service.Update_SceneItemVisibilityChanged] Source \"" + l_SceneItemID.ToString() + "\" is missing, refreshing all scenes");
-                    RefreshSceneList();
+                    var l_Group = l_CurrentScene.GetSourceItemByName(l_SceneName);
+                    if (l_Group == null || l_Group.SubItems == null || l_Group.SubItems.Count == 0)
+                        continue;
+
+                    l_SourceItem = l_Group.SubItems.FirstOrDefault(x => x.sceneItemId == l_SceneItemID);
+                    if (l_SourceItem != null)
+                        break;
                 }
             }
             else
+                l_SourceItem = l_Scene.GetSourceItemByID(l_SceneItemID);
+
+            if (l_SourceItem != null)
             {
-                ChatPlexSDK.Logger.Error("[CP_SDK.OBS][Service.Update_SceneItemVisibilityChanged] Scene \"" + (l_SceneUUID != null ? l_SceneUUID : "<unk>") + "\" is missing, refreshing all scenes");
+                l_SourceItem.sceneItemEnabled = p_JObject["sceneItemEnabled"]?.Value<bool>() ?? true;
+                OnSourceVisibilityChanged?.Invoke(l_Scene, l_SourceItem, l_SourceItem.sceneItemEnabled);
+            }
+            else
+            {
+                ChatPlexSDK.Logger.Error("[CP_SDK.OBS][Service.Update_SceneItemVisibilityChanged] Source \"" + l_SceneItemID.ToString() + "\" is missing, refreshing all scenes");
                 RefreshSceneList();
             }
         }

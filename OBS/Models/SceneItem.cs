@@ -1,4 +1,8 @@
 ﻿using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine.SceneManagement;
 
 namespace CP_SDK.OBS.Models
 {
@@ -65,6 +69,8 @@ namespace CP_SDK.OBS.Models
         ////////////////////////////////////////////////////////////////////////////
 
         public Scene                OwnerScene          { get; internal set; } = null;
+        public SceneItem            OwnerSceneItem      { get; internal set; } = null;
+        public List<SceneItem>      SubItems            { get; internal set; } = null;
 
         public string               sourceUuid          { get; internal set; } = "";
         public string               sourceType          { get; internal set; } = "";
@@ -87,13 +93,14 @@ namespace CP_SDK.OBS.Models
         /// <summary>
         /// Get new source instance from JObject
         /// </summary>
-        /// <param name="p_Scene">Owner scene</param>
+        /// <param name="p_OwnerScene">Owner scene</param>
+        /// <param name="p_OwnerSceneItem">Owner scene item</param>
         /// <param name="p_Object">JObject to deserialize</param>
         /// <returns></returns>
-        internal static SceneItem FromJObject(Scene p_Scene, JObject p_Object)
+        internal static SceneItem FromJObject(Scene p_OwnerScene, SceneItem p_OwnerSceneItem, JObject p_Object)
         {
             var l_Source = s_Pool.Get();
-            l_Source.Deserialize(p_Scene, p_Object);
+            l_Source.Deserialize(p_OwnerScene, p_OwnerSceneItem, p_Object);
 
             return l_Source;
         }
@@ -104,7 +111,28 @@ namespace CP_SDK.OBS.Models
         internal static void Release(SceneItem p_Source)
         {
             s_Pool.Release(p_Source);
-            p_Source.OwnerScene = null;
+
+            if (p_Source.SubItems != null)
+            {
+                try
+                {
+                    for (int l_I = 0; l_I < p_Source.SubItems.Count; ++l_I)
+                        Release(p_Source.SubItems[l_I]);
+
+                    p_Source.SubItems.Clear();
+                }
+                catch (System.Exception l_Exception)
+                {
+                    ChatPlexSDK.Logger.Error("[CP_SDK.OBS.Models][SceneItem.Release] Error:");
+                    ChatPlexSDK.Logger.Error(l_Exception);
+                }
+
+                Pool.MTListPool<SceneItem>.Release(p_Source.SubItems);
+            }
+
+            p_Source.SubItems       = null;
+            p_Source.OwnerScene     = null;
+            p_Source.OwnerSceneItem = null;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -113,11 +141,13 @@ namespace CP_SDK.OBS.Models
         /// <summary>
         /// Deserialize from JObject
         /// </summary>
-        /// <param name="p_Scene">Owner scene</param>
+        /// <param name="p_OwnerScene">Owner scene</param>
+        /// <param name="p_OwnerSceneItem">Owner scene item</param>
         /// <param name="p_Object">JObject to deserialize</param>
-        internal void Deserialize(Scene p_Scene, JObject p_Object)
+        internal void Deserialize(Scene p_OwnerScene, SceneItem p_OwnerSceneItem, JObject p_Object)
         {
-            OwnerScene = p_Scene;
+            OwnerScene      = p_OwnerScene;
+            OwnerSceneItem  = p_OwnerSceneItem;
 
             sourceUuid          = p_Object["sourceUuid"]?.Value<string>()       ?? "";
             sourceType          = p_Object["sourceType"]?.Value<string>()       ?? "";
@@ -128,6 +158,67 @@ namespace CP_SDK.OBS.Models
             sceneItemEnabled    = p_Object["sceneItemEnabled"]?.Value<bool>()   ?? true;
             sceneItemBlendMode  = p_Object["parentGroupName"]?.Value<string>()  ?? null;
             inputKind           = p_Object["parentGroupName"]?.Value<string>()  ?? null;
+
+            /// If the scene item is a group we need to query sub items
+            if (p_Object["isGroup"].Type == JTokenType.Boolean && p_Object["isGroup"].Value<bool>() == true && sourceType == "OBS_SOURCE_TYPE_SCENE")
+            {
+                Service.SendRequest(
+                    "GetGroupSceneItemList",
+                    $"Scene_{OwnerScene.sceneUuid}|Group_{sourceUuid}",
+                    new JObject() { ["sceneUuid"] = sourceUuid }
+                );
+            }
+        }
+        internal void DeserializeSubItems(JArray p_JArray)
+        {
+            var l_SubItemCount = p_JArray.Count;
+            if (l_SubItemCount == 0)
+                return;
+
+            if (SubItems == null)
+            {
+                SubItems = Pool.MTListPool<SceneItem>.Get();
+                SubItems.Clear();
+            }
+
+            var l_OldList = SubItems;
+            var l_NewList = Pool.MTListPool<SceneItem>.Get();
+
+            try
+            {
+                for (int l_I = 0; l_I < l_SubItemCount; ++l_I)
+                {
+                    var l_JObject   = p_JArray[l_I] as JObject;
+                    var l_Existing  = l_OldList.FirstOrDefault(x => x.sourceUuid == (l_JObject["sourceUuid"]?.Value<string>() ?? null));
+
+                    if (l_Existing != null)
+                    {
+                        l_Existing.Deserialize(OwnerScene, this, l_JObject);
+                        l_NewList.Add(l_Existing);
+                        l_OldList.Remove(l_Existing);
+                    }
+                    else
+                    {
+                        var l_New = SceneItem.FromJObject(OwnerScene, this, l_JObject);
+                        l_NewList.Add(l_New);
+                    }
+                }
+            }
+            catch (System.Exception l_Exception)
+            {
+                ChatPlexSDK.Logger.Error("[CP_SDK.OBS.Models][Scene.DeserializeSubItems] Error:");
+                ChatPlexSDK.Logger.Error(l_Exception);
+            }
+            finally
+            {
+                SubItems = l_NewList;
+
+                for (int l_I = 0; l_I < l_OldList.Count; ++l_I)
+                    Release(l_OldList[l_I]);
+
+                l_OldList.Clear();
+                Pool.MTListPool<SceneItem>.Release(l_OldList);
+            }
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -138,17 +229,17 @@ namespace CP_SDK.OBS.Models
         /// </summary>
         /// <param name="p_Enabled">New value</param>
         public void SetEnabled(bool p_Enabled)
-            => Service.SetSceneItemEnabled(OwnerScene, this, p_Enabled);
+            => Service.SetSceneItemEnabled(OwnerScene, OwnerSceneItem, this, p_Enabled);
         /// <summary>
         /// Set this source muted
         /// </summary>
         /// <param name="p_Muted">New state</param>
         public void SetMuted(bool p_Muted)
-            => Service.SetInputMute(OwnerScene, this, p_Muted);
+            => Service.SetInputMute(OwnerScene, OwnerSceneItem, this, p_Muted);
         /// <summary>
         /// Toggle this source mute state
         /// </summary>
         public void ToggleMute()
-            => Service.ToggleInputMute(OwnerScene, this);
+            => Service.ToggleInputMute(OwnerScene, OwnerSceneItem, this);
     }
 }

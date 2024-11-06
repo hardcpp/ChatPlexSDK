@@ -91,6 +91,9 @@ namespace CP_SDK.OBS
                 case "GetSceneItemList":
                     HandleRequest_GetSceneItemList(l_RequestID, l_Result, (JObject)l_ResponseData);
                     break;
+                case "GetGroupSceneItemList":
+                    HandleRequest_GetGroupSceneItemList(l_RequestID, l_Result, (JObject)l_ResponseData);
+                    break;
                 case "GetSceneList":
                     HandleRequest_GetSceneList(l_RequestID, l_Result, (JObject)l_ResponseData);
                     break;

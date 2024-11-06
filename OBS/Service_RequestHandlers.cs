@@ -50,6 +50,35 @@ namespace CP_SDK.OBS
         ////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
+        /// GetGroupSceneItemList request callback
+        /// </summary>
+        /// <param name="p_RequestID">Request ID</param>
+        /// <param name="p_Result">Is successfull</param>
+        /// <param name="p_JObject">Reply</param>
+        private static void HandleRequest_GetGroupSceneItemList(string p_RequestID, bool p_Result, JObject p_JObject)
+        {
+            if (!p_Result || !p_RequestID.StartsWith("Scene_") || !p_RequestID.Contains('|') || !p_RequestID.Contains("Group_"))
+                return;
+
+            var l_IDParts = p_RequestID.Split('|');
+            var l_SceneUUID = l_IDParts[0].Substring("Scene_".Length);
+            var l_GroupUUID = l_IDParts[1].Substring("Group_".Length);
+
+            if (!m_Scenes.TryGetValue(l_SceneUUID, out var l_Scene))
+                return;
+
+            var l_Group = l_Scene.sceneItems.FirstOrDefault(x => x.sourceUuid == l_GroupUUID);
+            if (l_Group == null)
+                return;
+
+            var l_SubItemsJArray = p_JObject["sceneItems"] as JArray;
+            l_Group.DeserializeSubItems(l_SubItemsJArray);
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
         /// GetSceneList request callback
         /// </summary>
         /// <param name="p_RequestID">Request ID</param>

@@ -312,7 +312,7 @@ namespace CP_SDK.OBS
         /// <param name="p_Type">Request type</param>
         /// <param name="p_ID">Request ID</param>
         /// <param name="p_Data">Request data</param>
-        private static void SendRequest(string p_Type, string p_ID = null, JObject p_Data = null)
+        internal static void SendRequest(string p_Type, string p_ID = null, JObject p_Data = null)
         {
             if (!m_Client.IsConnected)
                 return;
@@ -333,7 +333,7 @@ namespace CP_SDK.OBS
         /// </summary>
         /// <param name="p_RequestID">ID of the request</param>
         /// <param name="p_Requests">List of request type + id + data</param>
-        private static void SendRequestBatch(string p_RequestID, List<(string Type, string ID, JObject Data)> p_Requests)
+        internal static void SendRequestBatch(string p_RequestID, List<(string Type, string ID, JObject Data)> p_Requests)
         {
             if (!m_Client.IsConnected)
                 return;
@@ -472,16 +472,17 @@ namespace CP_SDK.OBS
         /// <summary>
         /// Set scene item enabled
         /// </summary>
-        /// <param name="p_Scene">Scene that contain the source item</param>
+        /// <param name="p_OwnerScene">Scene that contain the source item</param>
+        /// <param name="p_OwnerSceneItem">Owner scene item</param>
         /// <param name="p_SourceItem">Source instance</param>
         /// <param name="p_Enabled">New visibility</param>
-        public static void SetSceneItemEnabled(Models.Scene p_Scene, Models.SceneItem p_SourceItem, bool p_Enabled)
+        public static void SetSceneItemEnabled(Models.Scene p_OwnerScene, Models.SceneItem p_OwnerSceneItem, Models.SceneItem p_SourceItem, bool p_Enabled)
         {
-            if (p_Scene == null || p_SourceItem == null)
+            if (p_OwnerScene == null || p_SourceItem == null)
                 return;
 
             SendRequest("SetSceneItemEnabled", null, new JObject() {
-                ["sceneUuid"]           = p_Scene.sceneUuid,
+                ["sceneUuid"]           = p_OwnerSceneItem?.sourceUuid ?? p_OwnerScene.sceneUuid,
                 ["sceneItemId"]         = p_SourceItem.sceneItemId,
                 ["sceneItemEnabled"]    = p_Enabled
             });
@@ -489,12 +490,13 @@ namespace CP_SDK.OBS
         /// <summary>
         /// Set input muted
         /// </summary>
-        /// <param name="p_Scene">Scene that contain the source item</param>
+        /// <param name="p_OwnerScene">Scene that contain the source item</param>
+        /// <param name="p_OwnerSceneItem">Owner scene item</param>
         /// <param name="p_SourceItem">Source instance</param>
         /// <param name="p_Muted">New state</param>
-        public static void SetInputMute(Models.Scene p_Scene, Models.SceneItem p_SourceItem, bool p_Muted)
+        public static void SetInputMute(Models.Scene p_OwnerScene, Models.SceneItem p_OwnerSceneItem, Models.SceneItem p_SourceItem, bool p_Muted)
         {
-            if (p_Scene == null || p_SourceItem == null)
+            if (p_OwnerScene == null || p_SourceItem == null)
                 return;
 
             SendRequest("SetInputMute", null, new JObject()
@@ -506,11 +508,12 @@ namespace CP_SDK.OBS
         /// <summary>
         /// Toggle input mute state
         /// </summary>
-        /// <param name="p_Scene">Scene that contain the source item</param>
+        /// <param name="p_OwnerScene">Scene that contain the source item</param>
+        /// <param name="p_OwnerSceneItem">Owner scene item</param>
         /// <param name="p_SourceItem">Source instance</param>
-        public static void ToggleInputMute(Models.Scene p_Scene, Models.SceneItem p_SourceItem)
+        public static void ToggleInputMute(Models.Scene p_OwnerScene, Models.SceneItem p_OwnerSceneItem, Models.SceneItem p_SourceItem)
         {
-            if (p_Scene == null || p_SourceItem == null)
+            if (p_OwnerScene == null || p_SourceItem == null)
                 return;
 
             SendRequest("ToggleInputMute", null, new JObject()

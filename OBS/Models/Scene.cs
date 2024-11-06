@@ -108,13 +108,13 @@ namespace CP_SDK.OBS.Models
 
                         if (l_Existing != null)
                         {
-                            l_Existing.Deserialize(this, l_JObject);
+                            l_Existing.Deserialize(this, null, l_JObject);
                             l_NewList.Add(l_Existing);
                             l_OldList.Remove(l_Existing);
                         }
                         else
                         {
-                            var l_New = SceneItem.FromJObject(this, l_SceneItems[l_I] as JObject);
+                            var l_New = SceneItem.FromJObject(this, null, l_JObject);
                             l_NewList.Add(l_New);
                         }
                     }
