@@ -51,7 +51,7 @@ namespace CP_SDK.UI
             l_Tooltip.m_Image.color                     = UISystem.TooltipBGColor;
             l_Tooltip.m_Image.maskable                  = false;
 
-            l_Tooltip.m_Border = UISystem.ImageFactory.Create("Text", l_Tooltip.m_RTransform);
+            l_Tooltip.m_Border = UISystem.ImageFactory.Create("Border", l_Tooltip.m_RTransform);
             l_Tooltip.m_Border.SetSprite(UISystem.GetUIRoundSmoothFrameSprite());
             l_Tooltip.m_Border.SetColor(ColorU.WithAlpha(Color.white, 0.80f));
             l_Tooltip.m_Border.SetType(Image.Type.Sliced);
@@ -60,11 +60,13 @@ namespace CP_SDK.UI
             l_Tooltip.m_Border.RTransform.anchorMax         = Vector2.one;
             l_Tooltip.m_Border.RTransform.anchoredPosition  = Vector2.zero;
             l_Tooltip.m_Border.RTransform.sizeDelta         = Vector2.zero;
+            l_Tooltip.m_Border.ImageC.maskable = false;
 
             l_Tooltip.m_Text = UISystem.TextFactory.Create("Text", l_Tooltip.m_RTransform);
             l_Tooltip.m_Text.SetText("Tooltip");
             l_Tooltip.m_Text.SetFontSize(3.8f);
             l_Tooltip.m_Text.SetColor(Color.white);
+            l_Tooltip.m_Text.TMProUGUI.maskable = false;
 
             l_Tooltip.gameObject.SetActive(false);
 
