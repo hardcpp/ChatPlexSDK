@@ -89,7 +89,6 @@ namespace CP_SDK.Chat.Services.Twitch
         private TwitchMessageParser     m_MessageParser;
         private TwitchDataProvider      m_DataProvider;
         private Network.WebSocketClient m_IRCWebSocket;
-        private TwitchPubSub            m_PubSub;
         private TwitchEventSub          m_EventSub;
         private DateTime                m_LastResetTime             = DateTime.UtcNow;
         private DateTime                m_LastIRCSubPing            = DateTime.UtcNow;
@@ -122,7 +121,7 @@ namespace CP_SDK.Chat.Services.Twitch
             /// Init
             m_DataProvider  = new TwitchDataProvider();
             m_MessageParser = new TwitchMessageParser(this, m_DataProvider, new FrwTwemojiParser());
-            HelixAPI        = new TwitchHelix();
+            HelixAPI        = new TwitchHelix(this);
 
             HelixAPI.OnTokenValidate += HelixAPI_OnTokenValidate;
 
@@ -133,7 +132,6 @@ namespace CP_SDK.Chat.Services.Twitch
             m_IRCWebSocket.OnError              += IRCSocket_OnError;
             m_IRCWebSocket.OnMessageReceived    += IRCSocket_OnMessageReceived;
 
-            m_PubSub    = new TwitchPubSub(this);
             m_EventSub  = new TwitchEventSub(this);
         }
 
@@ -189,7 +187,6 @@ namespace CP_SDK.Chat.Services.Twitch
                 }
 
                 m_EventSub.Disconnect();
-                m_PubSub.Disconnect();
                 m_IRCWebSocket.Disconnect();
 
                 foreach (var l_Channel in m_Channels)
@@ -423,7 +420,6 @@ namespace CP_SDK.Chat.Services.Twitch
             if (p_Valid)
             {
                 m_EventSub.Connect();
-                m_PubSub.Connect();
                 m_IRCWebSocket.Connect("wss://irc-ws.chat.twitch.tv:443");
 
                 foreach (var l_Scope in RequiredTokenScopes)
@@ -469,8 +465,6 @@ namespace CP_SDK.Chat.Services.Twitch
 
                     m_LastIRCSubPing = l_UtcNow;
                 }
-
-                m_PubSub.OnTick(l_UtcNow);
 
                 if ((l_UtcNow - m_LastResetTime).TotalSeconds >= 30)
                 {
@@ -829,7 +823,6 @@ namespace CP_SDK.Chat.Services.Twitch
 
                                 if (!string.IsNullOrEmpty(m_TokenChannel) && !m_TempChannels.Any(x => x.Key.ToLower() == l_TwitchChannel.Name.ToLower()))
                                 {
-                                    m_PubSub.UnsubscribeTopics(l_TwitchChannel.Roomstate.RoomId, l_TwitchChannel.Name);
                                     m_EventSub.UnsubscrbibeAll(l_TwitchChannel.Roomstate.RoomId);
                                 }
                             }
@@ -860,14 +853,10 @@ namespace CP_SDK.Chat.Services.Twitch
 
                                 if (!string.IsNullOrEmpty(m_TokenChannel) && !m_TempChannels.Any(x => x.Key.ToLower() == l_TwitchChannel.Name.ToLower()))
                                 {
-                                    m_PubSub.SubscribeTopics(new string[] {
-                                        "channel-subscribe-events-v1",
-                                        "channel-bits-events-v2",
-                                        "channel-points-channel-v1",
-                                        "video-playback"
-                                    }, l_TwitchChannel.Roomstate.RoomId, l_TwitchChannel.Name);
-
                                     m_EventSub.Subscribe_ChannelFollow(l_TwitchChannel.Roomstate.RoomId);
+                                    m_EventSub.Subscribe_ChannelPointCustomRewardRedemptionAdd(l_TwitchChannel.Roomstate.RoomId);
+                                    m_EventSub.Subscribe_ChannelSubscription(l_TwitchChannel.Roomstate.RoomId);
+                                    m_EventSub.Subscribe_ChannelCheer(l_TwitchChannel.Roomstate.RoomId);
                                 }
                             }
                             continue;

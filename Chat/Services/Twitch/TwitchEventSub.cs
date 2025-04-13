@@ -1,8 +1,10 @@
-﻿using CP_SDK.Chat.SimpleJSON;
+﻿using CP_SDK.Chat.Models.Twitch;
+using CP_SDK.Chat.SimpleJSON;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace CP_SDK.Chat.Services.Twitch
 {
@@ -114,6 +116,57 @@ namespace CP_SDK.Chat.Services.Twitch
                 {
                     { "broadcaster_user_id",    p_RoomID                                },
                     { "moderator_user_id",      m_TwitchService.HelixAPI.TokenUserID    },
+                }
+            });
+        }
+        /// <summary>
+        /// Subscribe for Channel Points Custom Reward Redemption Add
+        /// </summary>
+        /// <param name="p_RoomID">ID of the channel</param>
+        public void Subscribe_ChannelPointCustomRewardRedemptionAdd(string p_RoomID)
+        {
+            AddSubscription(new Subscription()
+            {
+                RoomID      = p_RoomID,
+                Type        = "channel.channel_points_custom_reward_redemption.add",
+                Version     = "1",
+                Conditions  = new Dictionary<string, string>()
+                {
+                    { "broadcaster_user_id", p_RoomID },
+                }
+            });
+        }
+        /// <summary>
+        /// Subscribe for Channel Subscription
+        /// </summary>
+        /// <param name="p_RoomID">ID of the channel</param>
+        public void Subscribe_ChannelSubscription(string p_RoomID)
+        {
+            AddSubscription(new Subscription()
+            {
+                RoomID      = p_RoomID,
+                Type        = "channel.subscribe",
+                Version     = "1",
+                Conditions  = new Dictionary<string, string>()
+                {
+                    { "broadcaster_user_id", p_RoomID },
+                }
+            });
+        }
+        /// <summary>
+        /// Subscribe for Channel Cheer
+        /// </summary>
+        /// <param name="p_RoomID">ID of the channel</param>
+        public void Subscribe_ChannelCheer(string p_RoomID)
+        {
+            AddSubscription(new Subscription()
+            {
+                RoomID      = p_RoomID,
+                Type        = "channel.cheer",
+                Version     = "1",
+                Conditions  = new Dictionary<string, string>()
+                {
+                    { "broadcaster_user_id", p_RoomID },
                 }
             });
         }
@@ -282,9 +335,36 @@ namespace CP_SDK.Chat.Services.Twitch
                             switch (l_SubscriptionType)
                             {
                                 case "channel.follow":
+                                {
                                     if (l_Payload.TryGetKey("event", out var l_Event))
                                         Handle_Notification_ChannelFollow(l_Event);
+
                                     break;
+                                }
+
+                                case "channel.channel_points_custom_reward_redemption.add":
+                                {
+                                    if (l_Payload.TryGetKey("event", out var l_Event))
+                                        Handle_Notification_ChannelPointsCustomRewardRedemptionAdd(l_Event);
+
+                                    break;
+                                }
+
+                                case "channel.subscribe":
+                                {
+                                    if (l_Payload.TryGetKey("event", out var l_Event))
+                                        Handle_Notification_ChannelSubscription(l_Event);
+
+                                    break;
+                                }
+
+                                case "channel.cheer":
+                                {
+                                    if (l_Payload.TryGetKey("event", out var l_Event))
+                                        Handle_Notification_ChannelCheer(l_Event);
+
+                                    break;
+                                }
 
                             }
                             break;
@@ -341,6 +421,138 @@ namespace CP_SDK.Chat.Services.Twitch
                 {
                     l_FollowUser._HadFollowed = true;
                     m_TwitchService.m_OnChannelFollowCallbacks?.InvokeAll(m_TwitchService, l_FollowChannel, l_FollowUser);
+                }
+            }
+        }
+        /// <summary>
+        /// message_type='notification' subscription_type='channel.channel_points_custom_reward_redemption.add'
+        /// </summary>
+        private void Handle_Notification_ChannelPointsCustomRewardRedemptionAdd(JSONNode p_Event)
+        {
+            JSONNode l_Value;
+            string l_ID                 = string.Empty;
+            string l_UserID             = string.Empty;
+            string l_UserLogin          = string.Empty;
+            string l_UserName           = string.Empty;
+            string l_UserInput          = string.Empty;
+            string l_BroadcasterUserID  = string.Empty;
+            string l_Reward_ID          = string.Empty;
+
+            if (p_Event.TryGetKey("id",                 out l_Value)) { l_ID                = l_Value.Value; }
+            if (p_Event.TryGetKey("user_id",            out l_Value)) { l_UserID            = l_Value.Value; }
+            if (p_Event.TryGetKey("user_login",         out l_Value)) { l_UserLogin         = l_Value.Value; }
+            if (p_Event.TryGetKey("user_name",          out l_Value)) { l_UserName          = l_Value.Value; }
+            if (p_Event.TryGetKey("user_input",         out l_Value)) { l_UserInput         = l_Value.Value; }
+            if (p_Event.TryGetKey("broadcaster_user_id",out l_Value)) { l_BroadcasterUserID = l_Value.Value; }
+
+            if (p_Event.TryGetKey("reward", out var l_Reward))
+                if (l_Reward.TryGetKey("id", out l_Value)) { l_Reward_ID = l_Value.Value; }
+
+            if (!string.IsNullOrEmpty(l_UserID) && !string.IsNullOrEmpty(l_UserLogin) && !string.IsNullOrEmpty(l_UserName) && !string.IsNullOrEmpty(l_BroadcasterUserID) && !string.IsNullOrEmpty(l_Reward_ID))
+            {
+                var l_PointsUser    = m_TwitchService.GetTwitchUser(l_UserID, l_UserLogin, l_UserName);
+                var l_PointsChannel = m_TwitchService._ChannelsRaw.Select(x => x.Value).FirstOrDefault(x => x.Roomstate.RoomId == l_BroadcasterUserID);
+
+                if (l_PointsUser != null && l_PointsChannel != null)
+                {
+                    m_TwitchService.HelixAPI.GetCustomReward(l_Reward_ID, (p_HelixResult, p_Result, p_Error) =>
+                    {
+                        var l_PointsEvent = new TwitchChannelPointEvent()
+                        {
+                            RewardID        = p_Result.id,
+                            TransactionID   = l_ID,
+                            Title           = p_Result.title,
+                            Cost            = p_Result.cost,
+                            Prompt          = p_Result.prompt,
+                            UserInput       = l_UserInput,
+                            Image           = p_Result.GetImageOrDefault().GetHighestURL(),
+                            BackgroundColor = p_Result.background_color
+                        };
+
+                        m_TwitchService.m_OnChannelPointsCallbacks?.InvokeAll(m_TwitchService, l_PointsChannel, l_PointsUser, l_PointsEvent);
+                    });
+                }
+            }
+        }
+        /// <summary>
+        /// message_type='notification' subscription_type='channel.subscribe'
+        /// </summary>
+        private void Handle_Notification_ChannelSubscription(JSONNode p_Event)
+        {
+            JSONNode l_Value;
+            string l_UserID             = string.Empty;
+            string l_UserLogin          = string.Empty;
+            string l_UserName           = string.Empty;
+            string l_BroadcasterUserID  = string.Empty;
+            string l_Tier               = string.Empty;
+            bool   l_IsGift             = false;
+
+            if (p_Event.TryGetKey("user_id",            out l_Value)) { l_UserID            = l_Value.Value; }
+            if (p_Event.TryGetKey("user_login",         out l_Value)) { l_UserLogin         = l_Value.Value; }
+            if (p_Event.TryGetKey("user_name",          out l_Value)) { l_UserName          = l_Value.Value; }
+            if (p_Event.TryGetKey("broadcaster_user_id",out l_Value)) { l_BroadcasterUserID = l_Value.Value; }
+            if (p_Event.TryGetKey("tier", out l_Value))
+            {
+                switch (l_Value.Value)
+                {
+                    case "prime":   l_Tier = "Prime"; break;
+                    case "1000":    l_Tier = "Tier1"; break;
+                    case "2000":    l_Tier = "Tier2"; break;
+                    case "3000":    l_Tier = "Tier3"; break;
+                }
+            }
+            if (p_Event.TryGetKey("is_gift", out l_Value)) { l_IsGift = bool.Parse(l_Value.Value); }
+
+            if (!string.IsNullOrEmpty(l_UserID) && !string.IsNullOrEmpty(l_UserLogin) && !string.IsNullOrEmpty(l_UserName) && !string.IsNullOrEmpty(l_BroadcasterUserID))
+            {
+                var l_SubscriptionUser      = m_TwitchService.GetTwitchUser(l_UserID, l_UserLogin, l_UserName);
+                var l_SubscriptionChannel   = m_TwitchService._ChannelsRaw.Select(x => x.Value).FirstOrDefault(x => x.Roomstate.RoomId == l_BroadcasterUserID);
+
+                if (l_SubscriptionUser != null && l_SubscriptionChannel != null)
+                {
+                    var l_SubscriptionEvent = new TwitchSubscriptionEvent()
+                    {
+                        DisplayName             = l_UserName,
+                        SubPlan                 = l_Tier,
+                        IsGift                  = l_IsGift,
+                    };
+
+                    m_TwitchService.m_OnChannelSubscriptionCallbacks?.InvokeAll(m_TwitchService, l_SubscriptionChannel, l_SubscriptionUser, l_SubscriptionEvent);
+                }
+            }
+        }
+        /// <summary>
+        /// message_type='notification' subscription_type='channel.cheer'
+        /// </summary>
+        private void Handle_Notification_ChannelCheer(JSONNode p_Event)
+        {
+            JSONNode l_Value;
+            bool   l_IsAnonymous        = false;
+            string l_UserID             = string.Empty;
+            string l_UserLogin          = string.Empty;
+            string l_UserName           = string.Empty;
+            string l_BroadcasterUserID  = string.Empty;
+            int    l_Bits               = 0;
+
+            if (p_Event.TryGetKey("is_anonymous",       out l_Value)) { l_IsAnonymous       = bool.Parse(l_Value.Value);    }
+            if (p_Event.TryGetKey("user_id",            out l_Value)) { l_UserID            = l_Value.Value;                }
+            if (p_Event.TryGetKey("user_login",         out l_Value)) { l_UserLogin         = l_Value.Value;                }
+            if (p_Event.TryGetKey("user_name",          out l_Value)) { l_UserName          = l_Value.Value;                }
+            if (p_Event.TryGetKey("broadcaster_user_id",out l_Value)) { l_BroadcasterUserID = l_Value.Value;                }
+            if (p_Event.TryGetKey("bits",               out l_Value)) { l_Bits              = int.Parse(l_Value.Value);     }
+
+            if (!string.IsNullOrEmpty(l_UserID) && !string.IsNullOrEmpty(l_UserLogin) && !string.IsNullOrEmpty(l_UserName) && !string.IsNullOrEmpty(l_BroadcasterUserID))
+            {
+                var l_BitsUser = m_TwitchService.GetTwitchUser(
+                    !l_IsAnonymous ? l_UserID       : null,
+                    !l_IsAnonymous ? l_UserLogin    : "AnAnonymousCheerer",
+                    !l_IsAnonymous ? l_UserName     : "AnAnonymousCheerer"
+                );
+                var l_BitsChannel   = m_TwitchService._ChannelsRaw.Select(x => x.Value).FirstOrDefault(x => x.Roomstate.RoomId == l_BroadcasterUserID);
+
+                if (l_BitsUser != null && l_BitsChannel != null)
+                {
+                    m_TwitchService.m_OnChannelBitsCallbacks?.InvokeAll(m_TwitchService, l_BitsChannel, l_BitsUser, l_Bits);
                 }
             }
         }

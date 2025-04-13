@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace CP_SDK.Chat.Services.Twitch
 {
@@ -23,7 +24,7 @@ namespace CP_SDK.Chat.Services.Twitch
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    
+
     [Serializable]
     public class Helix_TokenValidate
     {
@@ -42,6 +43,8 @@ namespace CP_SDK.Chat.Services.Twitch
     /// </summary>
     public class TwitchHelix
     {
+        internal const int STREAM_UPDATE_INTERVAL = 5000;
+
         internal const int POLL_UPDATE_INTERVAL = 10000;
         internal const int ACTIVE_POLL_UPDATE_INTERVAL = 2000;
 
@@ -54,12 +57,14 @@ namespace CP_SDK.Chat.Services.Twitch
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
+        private TwitchService           m_TwitchService             = null;
         private Network.WebClientUnity  m_WebClient                 = new Network.WebClientUnity("https://api.twitch.tv/helix/", TimeSpan.FromSeconds(10), true);
         private Network.WebClientCore   m_WebClientEx               = new Network.WebClientCore("https://api.twitch.tv/helix/", TimeSpan.FromSeconds(10), true);
         private string                  m_TokenUserID               = "";
         private string                  m_TokenUserName             = "";
         private string                  m_APIToken                  = "";
         private List<string>            m_APITokenScopes            = new List<string>();
+        private DateTime                m_LastStreamCheckTime       = DateTime.MinValue;
         private DateTime                m_LastPollCheckTime         = DateTime.MinValue;
         private Helix_Poll              m_LastPoll                  = null;
         private DateTime                m_LastHypeTrainCheckTime    = DateTime.MinValue;
@@ -80,6 +85,18 @@ namespace CP_SDK.Chat.Services.Twitch
         public event Action<Helix_Poll>                         OnActivePollChanged;
         public event Action<Helix_HypeTrain>                    OnActiveHypeTrainChanged;
         public event Action<Helix_Prediction>                   OnActivePredictionChanged;
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="p_TwitchService">Twitch service instance</param>
+        public TwitchHelix(TwitchService p_TwitchService)
+        {
+            m_TwitchService = p_TwitchService;
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -121,6 +138,23 @@ namespace CP_SDK.Chat.Services.Twitch
             if (string.IsNullOrEmpty(m_TokenUserID))
                 return;
 
+            #region Stream
+            if ((DateTime.Now - m_LastStreamCheckTime).TotalMilliseconds > STREAM_UPDATE_INTERVAL)
+            {
+                m_LastStreamCheckTime = DateTime.Now;
+                GetStream((p_Status, p_Result, p_Error) =>
+                {
+                    m_LastStreamCheckTime = DateTime.Now;
+
+                    var l_Channel = m_TwitchService._ChannelsRaw.Select(x => x.Value).FirstOrDefault(x => x.Roomstate.RoomId == BroadcasterUserID);
+                    if (p_Result != null && l_Channel != null)
+                        m_TwitchService.m_OnLiveStatusUpdatedCallbacks?.InvokeAll(m_TwitchService, l_Channel, true, p_Result.viewer_count);
+                    else if (l_Channel != null)
+                        m_TwitchService.m_OnLiveStatusUpdatedCallbacks?.InvokeAll(m_TwitchService, l_Channel, false, 0);
+                });
+            }
+            #endregion
+
             #region Poll
             int l_Interval = POLL_UPDATE_INTERVAL;
             if (m_LastPoll != null && (m_LastPoll.status == EHelix_PollStatus.ACTIVE || m_LastPoll.status == EHelix_PollStatus.COMPLETED || m_LastPoll.status == EHelix_PollStatus.TERMINATED))
@@ -128,6 +162,7 @@ namespace CP_SDK.Chat.Services.Twitch
 
             if ((DateTime.Now - m_LastPollCheckTime).TotalMilliseconds > l_Interval)
             {
+                m_LastPollCheckTime = DateTime.Now;
                 GetLastPoll((p_Status, p_Result, p_Error) =>
                 {
                     m_LastPollCheckTime = DateTime.Now;
@@ -150,6 +185,7 @@ namespace CP_SDK.Chat.Services.Twitch
 
             if ((DateTime.Now - m_LastHypeTrainCheckTime).TotalMilliseconds > l_Interval)
             {
+                m_LastHypeTrainCheckTime = DateTime.Now;
                 GetLastHypeTrain((p_Status, p_Result, p_Error) =>
                 {
                     m_LastHypeTrainCheckTime = DateTime.Now;
@@ -172,6 +208,7 @@ namespace CP_SDK.Chat.Services.Twitch
 
             if ((DateTime.Now - m_LastPredictionCheckTime).TotalMilliseconds > l_Interval)
             {
+                m_LastPredictionCheckTime = DateTime.Now;
                 GetLastPrediction((p_Status, p_Result, p_Error) =>
                 {
                     m_LastPredictionCheckTime = DateTime.Now;
@@ -429,6 +466,32 @@ namespace CP_SDK.Chat.Services.Twitch
         }
 
         ////////////////////////////////////////////////////////////////////////////
+        /// Stream
+        ////////////////////////////////////////////////////////////////////////////
+
+        public void GetStream(Action<EHelixResult, Helix_Stream, string> p_Callback)
+        {
+            GetQuery<THelixMultiModel<Helix_Stream>>(
+                null,
+                $"streams?user_id={BroadcasterUserID}&first=1",
+                (p_CallResult, p_Result, p_Error) => p_Callback?.Invoke(p_CallResult, p_Result?.data?.Length > 0 ? p_Result.data[0] : null, p_Error)
+            );
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        /// CustomReward
+        ////////////////////////////////////////////////////////////////////////////
+
+        public void GetCustomReward(string p_CustomRewardID, Action<EHelixResult, Helix_CustomReward, string> p_Callback)
+        {
+            GetQuery<THelixMultiModel<Helix_CustomReward>>(
+                null,
+                $"channel_points/custom_rewards?broadcaster_id={BroadcasterUserID}&id={p_CustomRewardID}",
+                (p_CallResult, p_Result, p_Error) => p_Callback?.Invoke(p_CallResult, p_Result?.data?.Length > 0 ? p_Result.data[0] : null, p_Error)
+            );
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
         private void GetQuery<t_Result>(string p_TokenScope, string p_URL, Action<EHelixResult, t_Result, string> p_Callback)
@@ -530,23 +593,27 @@ namespace CP_SDK.Chat.Services.Twitch
                 ChatPlexSDK.Logger.Error(p_Result.BodyString);
             }
 
-            if (p_Result == null)
-                p_Callback?.Invoke(EHelixResult.NetworkError, null, "Internal error, could not get a result");
-            else if (p_Result.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                p_Callback?.Invoke(EHelixResult.InvalidRequest, null, p_Result.BodyString);
-            else if (p_Result.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                p_Callback?.Invoke(EHelixResult.AuthorizationFailed, null, p_Result.BodyString);
-            else if (p_Result.IsSuccessStatusCode)
+            /// Break the binding for the MTThreadInvoker
+            Task.Run(() =>
             {
-                if (typeof(t_Result) == typeof(HelixEmptyModel))
-                    p_Callback?.Invoke(EHelixResult.OK, null, string.Empty);
-                else if (p_Result.TryGetObject<t_Result>(out var l_HelixResult))
-                    p_Callback?.Invoke(EHelixResult.OK, l_HelixResult, string.Empty);
+                if (p_Result == null)
+                    p_Callback?.Invoke(EHelixResult.NetworkError, null, "Internal error, could not get a result");
+                else if (p_Result.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                    p_Callback?.Invoke(EHelixResult.InvalidRequest, null, p_Result.BodyString);
+                else if (p_Result.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    p_Callback?.Invoke(EHelixResult.AuthorizationFailed, null, p_Result.BodyString);
+                else if (p_Result.IsSuccessStatusCode)
+                {
+                    if (typeof(t_Result) == typeof(HelixEmptyModel))
+                        p_Callback?.Invoke(EHelixResult.OK, null, string.Empty);
+                    else if (p_Result.TryGetObject<t_Result>(out var l_HelixResult))
+                        p_Callback?.Invoke(EHelixResult.OK, l_HelixResult, string.Empty);
+                    else
+                        p_Callback?.Invoke(EHelixResult.InvalidResult, l_HelixResult, "Failed to deserialize result");
+                }
                 else
-                    p_Callback?.Invoke(EHelixResult.InvalidResult, l_HelixResult, "Failed to deserialize result");
-            }
-            else
-                p_Callback?.Invoke(EHelixResult.NetworkError, null, p_Result.BodyString);
+                    p_Callback?.Invoke(EHelixResult.NetworkError, null, p_Result.BodyString);
+            }).ConfigureAwait(false);
         }
     }
 }

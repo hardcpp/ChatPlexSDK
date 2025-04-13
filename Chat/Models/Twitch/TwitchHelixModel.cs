@@ -281,6 +281,89 @@ namespace CP_SDK.Chat.Models.Twitch
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    /// Stream
+    ////////////////////////////////////////////////////////////////////////////
+
+    [Serializable]
+    public class Helix_Stream : IHelixModel
+    {
+        [JsonProperty] public string id { get; protected set; }
+        [JsonProperty] public string user_id { get; protected set; }
+        [JsonProperty] public string user_login { get; protected set; }
+        [JsonProperty] public string user_name { get; protected set; }
+        [JsonProperty] public string game_id { get; protected set; }
+        [JsonProperty] public string game_name { get; protected set; }
+        [JsonProperty] public string type { get; protected set; }
+        [JsonProperty] public string title { get; protected set; }
+        [JsonProperty] public string[] tags { get; protected set; }
+        [JsonProperty] public int viewer_count { get; protected set; }
+        [JsonProperty] public DateTime started_at { get; protected set; }
+        [JsonProperty] public string language { get; protected set; }
+        [JsonProperty] public string thumbnail_url { get; protected set; }
+        [JsonProperty] public object[] tag_ids { get; protected set; }
+        [JsonProperty] public bool is_mature { get; protected set; }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    /// Custom Reward
+    ////////////////////////////////////////////////////////////////////////////
+
+    [Serializable]
+    public class Helix_CustomReward : IHelixModel
+    {
+        [Serializable]
+        public class MaxPerStreamSetting
+        {
+            [JsonProperty] public bool is_enabled { get; protected set; }
+            [JsonProperty] public int max_per_stream { get; protected set; }
+        }
+        [Serializable]
+        public class MaxPerUserPerStreamSetting
+        {
+            [JsonProperty] public bool is_enabled { get; protected set; }
+            [JsonProperty] public int max_per_user_per_stream { get; protected set; }
+        }
+        [Serializable]
+        public class GlobalCooldownSetting
+        {
+            [JsonProperty] public bool is_enabled { get; protected set; }
+            [JsonProperty] public int global_cooldown_seconds { get; protected set; }
+        }
+        [Serializable]
+        public class Image
+        {
+            [JsonProperty] public string url_1x { get; protected set; }
+            [JsonProperty] public string url_2x { get; protected set; }
+            [JsonProperty] public string url_4x { get; protected set; }
+
+            public string GetHighestURL() => url_4x != null ? url_4x : (url_2x != null ? url_2x : url_1x);
+        }
+
+        [JsonProperty] public string broadcaster_name { get; protected set; }
+        [JsonProperty] public string broadcaster_login { get; protected set; }
+        [JsonProperty] public string broadcaster_id { get; protected set; }
+        [JsonProperty] public string id { get; protected set; }
+        [JsonProperty] public Image image { get; protected set; }
+        [JsonProperty] public string background_color { get; protected set; }
+        [JsonProperty] public bool is_enabled { get; protected set; }
+        [JsonProperty] public int cost { get; protected set; }
+        [JsonProperty] public string title { get; protected set; }
+        [JsonProperty] public string prompt { get; protected set; }
+        [JsonProperty] public bool is_user_input_required { get; protected set; }
+        [JsonProperty] public MaxPerStreamSetting max_per_stream_setting { get; protected set; }
+        [JsonProperty] public MaxPerUserPerStreamSetting max_per_user_per_stream_setting { get; protected set; }
+        [JsonProperty] public GlobalCooldownSetting global_cooldown_setting { get; protected set; }
+        [JsonProperty] public bool is_paused { get; protected set; }
+        [JsonProperty] public bool is_in_stock { get; protected set; }
+        [JsonProperty] public Image default_image { get; protected set; }
+        [JsonProperty] public bool should_redemptions_skip_request_queue { get; protected set; }
+        [JsonProperty] public object redemptions_redeemed_current_stream { get; protected set; }
+        [JsonProperty] public object cooldown_expires_at { get; protected set; }
+
+        public Image GetImageOrDefault() => image != null ? image : default_image;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
     /*
