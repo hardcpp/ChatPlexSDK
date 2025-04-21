@@ -10,6 +10,9 @@ namespace CP_SDK.UI
         public static string Minutes(float p_Value)
             => ((int)p_Value) + " Minute" + (((int)p_Value) > 1 ? "s" : "");
 
+        public static string Days(float p_Value)
+            => ((int)p_Value) + " Day" + (((int)p_Value) > 1 ? "s" : "");
+
         public static string TimeShortBaseSeconds(float p_Value)
         {
             const int SECONDS_PER_MINUTE = 60;
