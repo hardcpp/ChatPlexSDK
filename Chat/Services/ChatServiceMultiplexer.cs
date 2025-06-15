@@ -2,7 +2,6 @@
 using CP_SDK.Unity.Extensions;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Text;
 using UnityEngine;
 
 namespace CP_SDK.Chat.Services
@@ -70,7 +69,6 @@ namespace CP_SDK.Chat.Services
         {
             m_Services = p_Services;
 
-            StringBuilder l_NameBuilder = new StringBuilder();
             foreach (var l_Service in m_Services)
             {
                 l_Service.OnSystemMessage               += Service_OnSystemMessage;
@@ -90,14 +88,9 @@ namespace CP_SDK.Chat.Services
                 l_Service.OnTextMessageReceived         += Service_OnTextMessageReceived;
                 l_Service.OnChatCleared                 += Service_OnChatCleared;
                 l_Service.OnMessageCleared              += Service_OnMessageCleared;
-
-                if (l_NameBuilder.Length > 0)
-                    l_NameBuilder.Append(", ");
-
-                l_NameBuilder.Append(l_Service.DisplayName);
             }
 
-            DisplayName = l_NameBuilder.ToString();
+            DisplayName = "Internal";
         }
 
         ////////////////////////////////////////////////////////////////////////////
