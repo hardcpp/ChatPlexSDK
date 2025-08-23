@@ -71,7 +71,7 @@ namespace CP_SDK
         {
             InstallWEBPCodecs();
 
-            /// Init config
+
             Chat.Service.Init();
             OBS.Service.Init();
             //VoiceAttack.Service.Acquire();
@@ -126,6 +126,8 @@ namespace CP_SDK
                 UI.ModMenu.Register(new UI.ModButton(ProductName + "Plus", () => {
                     UI.FlowCoordinators.MainFlowCoordinator.Instance().Present(true);
                 }, ProductVersion));
+
+                ChatPlexService.Init();
             }
             catch (Exception p_Exception)
             {
@@ -142,6 +144,8 @@ namespace CP_SDK
             {
                 OnGenericSceneChange        = null;
                 OnGenericMenuSceneLoaded    = null;
+
+                ChatPlexService.Release();
 
                 UI.UISystem.Destroy();
                 UI.LoadingProgressBar.Destroy();

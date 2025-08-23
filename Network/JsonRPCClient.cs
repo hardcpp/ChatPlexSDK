@@ -119,7 +119,7 @@ namespace CP_SDK.Network
         /// <param name="p_Content">Query content</param>
         /// <param name="p_DontRetry">Should not retry?</param>
         /// <returns></returns>
-        private JsonRPCResult DoRequest(string p_Method, JObject p_Content, bool p_DontRetry = false)
+        private JsonRPCResult DoRequest(string p_Method, JObject p_Content, bool p_DontRetry)
         {
             return HandleWebResponse(p_Method, m_WebClient.Post(
                 "",
@@ -136,7 +136,7 @@ namespace CP_SDK.Network
         /// <param name="p_Callback">Callback</param>
         /// <param name="p_DontRetry">Should not retry?</param>
         /// <returns></returns>
-        private void DoRequestAsync(string p_Method, JObject p_Content, CancellationToken p_Token, Action<JsonRPCResult> p_Callback, bool p_DontRetry = false)
+        private void DoRequestAsync(string p_Method, JObject p_Content, CancellationToken p_Token, Action<JsonRPCResult> p_Callback, bool p_DontRetry)
         {
             m_WebClient.PostAsync(
                 "",

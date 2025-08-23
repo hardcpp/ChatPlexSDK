@@ -9,6 +9,7 @@ namespace CP_SDK
     {
         [JsonProperty] internal bool FirstRun = true;
         [JsonProperty] internal bool FirstChatCoreRun = true;
+        [JsonProperty] internal string ChatPlexServiceToken = "";
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////

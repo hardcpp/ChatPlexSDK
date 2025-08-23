@@ -1,5 +1,5 @@
 ﻿using CP_SDK.XUI;
-using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,16 +10,47 @@ namespace CP_SDK.UI.Views
     /// </summary>
     public sealed class SettingsLeftView : ViewController<SettingsLeftView>
     {
+        private XUIText             m_StatusText;
+        private XUIText             m_SubscriptionText;
+        private XUIPrimaryButton    m_PrimaryButton;
+        private XUISecondaryButton  m_SecondaryButton;
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        private bool m_IsLinking = false;
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
         /// <summary>
         /// On view creation
         /// </summary>
         protected override sealed void OnViewCreation()
         {
+            var l_Bytes     = Misc.Resources.FromRelPath(Assembly.GetExecutingAssembly(), "CP_SDK._Resources.ChatPlexLogoTransparent.png");
+            var l_Sprite    = Unity.SpriteU.CreateFromRaw(l_Bytes);
+
             Templates.FullRectLayout(
-                Templates.TitleBar("Tools"),
+                Templates.TitleBar("ChatPlex Account"),
+
+                XUIPrimaryButton.Make("")
+                    .SetBackgroundSprite(null)
+                    .SetIconSprite(l_Sprite)
+                    .SetWidth(52)
+                    .SetHeight(52),
+
+                XUIText.Make("Not connected")
+                    .Bind(ref m_StatusText),
+
+                XUIText.Make(" ")
+                    .Bind(ref m_SubscriptionText),
 
                 XUIVLayout.Make(
-                    XUIPrimaryButton.Make("Export LIV to camera2", OnLIVToCamera2Button)
+                    XUIPrimaryButton.Make("Connect", OnPrimaryButtonPressed)
+                        .Bind(ref m_PrimaryButton),
+                    XUISecondaryButton.Make("Disconnect", OnSecondaryButtonPressed)
+                        .Bind(ref m_SecondaryButton)
                 )
                 .SetWidth(60f)
                 .SetPadding(0)
@@ -32,66 +63,139 @@ namespace CP_SDK.UI.Views
                 {
                     y.SetHeight(8f);
                     y.OnReady((x) => x.CSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained);
-                }),
-
-                XUIVSpacer.Make(50f)
+                })
             )
             .SetBackground(true, null, true)
             .BuildUI(transform);
+
+            ChatPlexService.StateChanged += ChatPlexService_StateChanged;
+
+            ChatPlexService_StateChanged(ChatPlexService.State, ChatPlexService.State);
+        }
+        /// <summary>
+        /// On view deactivation
+        /// </summary>
+        protected sealed override void OnViewDeactivation()
+        {
+            ChatPlexService.StateChanged -= ChatPlexService_StateChanged;
         }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        /// On LIV to camera2 button
+        /// On primary button pressed
         /// </summary>
-        private void OnLIVToCamera2Button()
+        private void OnPrimaryButtonPressed()
         {
-            var l_LIVCamera = Resources.FindObjectsOfTypeAll<Camera>().FirstOrDefault(x => x.name == "LIV Camera");
-            if (!l_LIVCamera)
+            if (ChatPlexService.State == ChatPlexService.EState.Disconnected)
             {
-                ShowMessageModal("LIV not found!");
-                return;
+                m_IsLinking = true;
+                ChatPlexService.StartLinking();
+                ShowLoadingModal("Loading...", true, OnLoadingCancel);
             }
+            else if (ChatPlexService.State == ChatPlexService.EState.Error || ChatPlexService.State == ChatPlexService.EState.Connected)
+            {
+                ChatPlexService.Refresh();
+            }
+        }
+        /// <summary>
+        /// On secondary button pressed
+        /// </summary>
+        private void OnSecondaryButtonPressed()
+        {
+            ChatPlexService.Disconnect();
+        }
+        /// <summary>
+        /// On Loading cancel
+        /// </summary>
+        private void OnLoadingCancel()
+        {
+            if (ChatPlexService.State == ChatPlexService.EState.LinkRequest || ChatPlexService.State == ChatPlexService.EState.LinkWait)
+            {
+                m_IsLinking = false;
+                ChatPlexService.StopLinking();
+            }
+        }
 
-            var l_Profile = @"
-{
-  ""type"": ""Positionable"",
-  ""worldCamVisibility"": ""HiddenWhilePlaying"",
-  ""previewScreenSize"": 1.0,
-  ""FOV"": $$FOV$$,
-  ""layer"": -998,
-  ""renderScale"": 1,
-  ""farZ"": 1000.0,
-  ""targetPos"": {
-    ""x"": $$POSX$$,
-    ""y"": $$POSY$$,
-    ""z"": $$POSZ$$
-  },
-  ""targetRot"": {
-    ""x"": $$ROTX$$,
-    ""y"": $$ROTY$$,
-    ""z"": $$ROTZ$$
-  }
-}";
-            l_Profile = l_Profile.Replace("$$FOV$$", l_LIVCamera.fieldOfView.ToString().Replace(',', '.'));
-            l_Profile = l_Profile.Replace("$$POSX$$", l_LIVCamera.transform.position.x.ToString().Replace(',', '.'));
-            l_Profile = l_Profile.Replace("$$POSY$$", l_LIVCamera.transform.position.y.ToString().Replace(',', '.'));
-            l_Profile = l_Profile.Replace("$$POSZ$$", l_LIVCamera.transform.position.z.ToString().Replace(',', '.'));
-            l_Profile = l_Profile.Replace("$$ROTX$$", l_LIVCamera.transform.eulerAngles.x.ToString().Replace(',', '.'));
-            l_Profile = l_Profile.Replace("$$ROTY$$", l_LIVCamera.transform.eulerAngles.y.ToString().Replace(',', '.'));
-            l_Profile = l_Profile.Replace("$$ROTZ$$", l_LIVCamera.transform.eulerAngles.z.ToString().Replace(',', '.'));
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
 
-            try
+        /// <summary>
+        /// On ChatPlex service state change
+        /// </summary>
+        /// <param name="oldState">Old state</param>
+        /// <param name="newState">New state</param>
+        private void ChatPlexService_StateChanged(ChatPlexService.EState oldState, ChatPlexService.EState newState)
+        {
+            Unity.MTMainThreadInvoker.Enqueue(() =>
             {
-                System.IO.File.WriteAllText("UserData/Camera2/Cameras/BSP_LIV.json", l_Profile, System.Text.Encoding.UTF8);
-                ShowMessageModal("Camera \"BSP_LIV\" created in camera2!");
-            }
-            catch (System.Exception)
-            {
-                ShowMessageModal("Error!");
-            }
+                if (m_IsLinking)
+                {
+                    if (newState == ChatPlexService.EState.LinkRequest)
+                        ShowLoadingModal("Creating link request...", true, OnLoadingCancel);
+                    else if (newState == ChatPlexService.EState.LinkWait)
+                        ShowLoadingModal($"Go to https://chatplex.org/link and the input following code\n{ChatPlexService.LinkCode}", true, OnLoadingCancel);
+                    else if (newState == ChatPlexService.EState.Error)
+                    {
+                        m_IsLinking = false;
+
+                        CloseLoadingModal();
+                        ShowMessageModal("Error: " + ChatPlexService.LastError);
+                    }
+                    else
+                    {
+                        m_IsLinking = false;
+                        CloseLoadingModal();
+                    }
+                }
+
+                switch (newState)
+                {
+                    case ChatPlexService.EState.Disconnected:
+                        m_StatusText.SetColor(Color.red);
+                        m_StatusText.SetText("Disconected!");
+                        m_PrimaryButton.SetInteractable(true);
+                        m_PrimaryButton.SetText("Connect");
+                        m_SecondaryButton.SetInteractable(false);
+                        break;
+
+                    case ChatPlexService.EState.Error:
+                        m_StatusText.SetColor(Color.red);
+                        m_StatusText.SetText("Disconected, error!");
+                        m_PrimaryButton.SetInteractable(true);
+                        m_PrimaryButton.SetText("Connect");
+                        m_SecondaryButton.SetInteractable(false);
+                        break;
+
+                    case ChatPlexService.EState.Connecting:
+                        m_StatusText.SetColor(Color.blue);
+                        m_StatusText.SetText("Connecting...");
+                        m_PrimaryButton.SetInteractable(false);
+                        m_PrimaryButton.SetText("Connect");
+                        m_SecondaryButton.SetInteractable(false);
+                        break;
+
+                    case ChatPlexService.EState.LinkRequest:
+                    case ChatPlexService.EState.LinkWait:
+                        m_StatusText.SetColor(Color.blue);
+                        m_StatusText.SetText("Linking account...");
+                        m_PrimaryButton.SetInteractable(false);
+                        m_PrimaryButton.SetText("Connect");
+                        m_SecondaryButton.SetInteractable(false);
+                        break;
+
+                    case ChatPlexService.EState.Connected:
+                        m_StatusText.SetColor(Color.green);
+                        m_StatusText.SetText("Connected!");
+                        m_PrimaryButton.SetInteractable(true);
+                        m_PrimaryButton.SetText("Refresh");
+                        m_SecondaryButton.SetInteractable(true);
+                        break;
+                }
+
+                m_SubscriptionText.SetText(ChatPlexService.ActiveSubscription);
+            });
         }
     }
 }
