@@ -124,11 +124,23 @@ namespace CP_SDK.XUI
         ////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
+        /// Set button background color
+        /// </summary>
+        /// <param name="color">New color</param>
+        /// <returns></returns>
+        public t_Base SetBackgroundColor(Color color) => OnReady(x => x.SetBackgroundColor(color));
+        /// <summary>
         /// Set button background sprite
         /// </summary>
         /// <param name="p_Sprite">New sprite</param>
         /// <returns></returns>
         public t_Base SetBackgroundSprite(Sprite p_Sprite) => OnReady(x => x.SetBackgroundSprite(p_Sprite));
+        /// <summary>
+        /// Set button text color
+        /// </summary>
+        /// <param name="color">New color</param>
+        /// <returns></returns>
+        public t_Base SetColor(Color color) => OnReady(x => x.SetColor(color));
         /// <summary>
         /// Set font size
         /// </summary>

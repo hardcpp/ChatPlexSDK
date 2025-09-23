@@ -215,8 +215,8 @@ namespace CP_SDK.UI.DefaultComponents
             m_OnColor   = p_Color;
             m_OffColor  = p_Color;
 
-            m_DecButton.SetColor(p_Color);
-            m_IncButton.SetColor(p_Color);
+            m_DecButton.SetBackgroundColor(p_Color);
+            m_IncButton.SetBackgroundColor(p_Color);
 
             UpdateStyle();
 
@@ -609,8 +609,8 @@ namespace CP_SDK.UI.DefaultComponents
         private void UpdateStyle()
         {
             var l_IsInteractable = IsInteractable();
-            m_DecButton.SetColor(l_IsInteractable ? m_OnColor : m_OffColor);
-            m_IncButton.SetColor(l_IsInteractable ? m_OnColor : m_OffColor);
+            m_DecButton.SetBackgroundColor(l_IsInteractable ? m_OnColor : m_OffColor);
+            m_IncButton.SetBackgroundColor(l_IsInteractable ? m_OnColor : m_OffColor);
 
             if (m_LeftMouseButtonPressed || m_LastPointerEvent != null)
             {

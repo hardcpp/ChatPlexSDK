@@ -109,7 +109,7 @@ namespace CP_SDK.UI.Components
         /// <returns></returns>
         public virtual CPOrSButton SetColor(Color p_Color)
         {
-            BackgroundImageC.color = p_Color;
+            TextC.SetColor(p_Color);
             return this;
         }
         /// <summary>
