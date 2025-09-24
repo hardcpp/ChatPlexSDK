@@ -28,6 +28,43 @@ namespace CP_SDK.OBS
             }
         }
 
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// GetGroupSceneItemList request callback
+        /// </summary>
+        /// <param name="p_RequestID">Request ID</param>
+        /// <param name="p_Result">Is successfull</param>
+        /// <param name="p_JObject">Reply</param>
+        private static void HandleRequest_GetSourceFilterList(string p_RequestID, bool p_Result, JObject p_JObject)
+        {
+            if (!p_Result || !p_RequestID.StartsWith("Scene_") || !p_RequestID.Contains('|') || !p_RequestID.Contains("Filters_"))
+                return;
+
+            var l_IDParts       = p_RequestID.Split('|');
+            var l_SceneUUID     = l_IDParts[0].Substring("Scene_".Length);
+            var l_SourceUUID    = l_IDParts[1].Substring("Filters_".Length);
+
+            if (!m_Scenes.TryGetValue(l_SceneUUID, out var l_Scene))
+                return;
+
+            var l_Source = l_Scene.sceneItems.FirstOrDefault(x => x.sourceUuid == l_SourceUUID);
+            if (l_Source == null)
+            {
+                var l_Group = l_Scene.sceneItems.Where(x => x.SubItems != null && x.SubItems.Count() > 0 && x.SubItems.Any(y => y.sourceUuid == l_SourceUUID)).FirstOrDefault();
+                if (l_Group != null)
+                    l_Source = l_Group.SubItems.FirstOrDefault(x => x.sourceUuid == l_SourceUUID);
+            }
+
+            if (l_Source == null)
+                return;
+
+            var l_SubItemsJArray = p_JObject["filters"] as JArray;
+            l_Source.DeserializeFilters(l_SubItemsJArray);
+        }
+
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 

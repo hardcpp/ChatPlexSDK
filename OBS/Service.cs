@@ -521,6 +521,25 @@ namespace CP_SDK.OBS
                 ["inputUuid"] = p_SourceItem.sourceUuid,
             });
         }
+        /// <summary>
+        /// Set scene item filter enabled
+        /// </summary>
+        /// <param name="scene">Scene that contain the scene item</param>
+        /// <param name="sceneItem">Scene item that contain the scene item filter</param>
+        /// <param name="sceneItemFilter">Scene item filter to modify</param>
+        /// <param name="enabled">New enabled state</param>
+        public static void SetSceneItemFilterEnabled(Models.Scene scene, Models.SceneItem sceneItem, Models.SceneItemFilter sceneItemFilter, bool enabled)
+        {
+            if (scene == null || sceneItem == null || sceneItemFilter == null)
+                return;
+
+            SendRequest("SetSourceFilterEnabled", null, new JObject()
+            {
+                ["sourceUuid"]      = sceneItem.sourceUuid,
+                ["filterName"]      = sceneItemFilter.filterName,
+                ["filterEnabled"]   = enabled
+            });
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////

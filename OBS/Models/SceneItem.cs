@@ -1,6 +1,9 @@
 ﻿using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
+using UnityEngine.UIElements;
+using static HMUI.NavigationController;
 
 namespace CP_SDK.OBS.Models
 {
@@ -66,9 +69,10 @@ namespace CP_SDK.OBS.Models
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
-        public Scene                OwnerScene          { get; internal set; } = null;
-        public SceneItem            OwnerSceneItem      { get; internal set; } = null;
-        public List<SceneItem>      SubItems            { get; internal set; } = null;
+        public Scene                    OwnerScene          { get; internal set; } = null;
+        public SceneItem                OwnerSceneItem      { get; internal set; } = null;
+        public List<SceneItem>          SubItems            { get; internal set; } = null;
+        public List<SceneItemFilter>    Filters             { get; internal set; } = null;
 
         public string               sourceUuid          { get; internal set; } = "";
         public string               sourceType          { get; internal set; } = "";
@@ -128,7 +132,26 @@ namespace CP_SDK.OBS.Models
                 Pool.MTListPool<SceneItem>.Release(p_Source.SubItems);
             }
 
+            if (p_Source.Filters != null)
+            {
+                try
+                {
+                    for (int l_I = 0; l_I < p_Source.Filters.Count; ++l_I)
+                        SceneItemFilter.Release(p_Source.Filters[l_I]);
+
+                    p_Source.Filters.Clear();
+                }
+                catch (System.Exception l_Exception)
+                {
+                    ChatPlexSDK.Logger.Error("[CP_SDK.OBS.Models][SceneItem.Release] Error:");
+                    ChatPlexSDK.Logger.Error(l_Exception);
+                }
+
+                Pool.MTListPool<SceneItemFilter>.Release(p_Source.Filters);
+            }
+
             p_Source.SubItems       = null;
+            p_Source.Filters        = null;
             p_Source.OwnerScene     = null;
             p_Source.OwnerSceneItem = null;
         }
@@ -166,12 +189,29 @@ namespace CP_SDK.OBS.Models
                     new JObject() { ["sceneUuid"] = sourceUuid }
                 );
             }
+
+            Service.SendRequest(
+                "GetSourceFilterList",
+                $"Scene_{OwnerScene.sceneUuid}|Filters_{sourceUuid}",
+                new JObject() { ["sourceName"] = sourceName }
+            );
         }
         internal void DeserializeSubItems(JArray p_JArray)
         {
             var l_SubItemCount = p_JArray.Count;
             if (l_SubItemCount == 0)
+            {
+                if (SubItems != null)
+                {
+                    for (int l_I = 0; l_I < SubItems.Count; ++l_I)
+                        SceneItem.Release(SubItems[l_I]);
+
+                    SubItems.Clear();
+                    Pool.MTListPool<SceneItem>.Release(SubItems);
+                    SubItems = null;
+                }
                 return;
+            }
 
             if (SubItems == null)
             {
@@ -216,6 +256,68 @@ namespace CP_SDK.OBS.Models
 
                 l_OldList.Clear();
                 Pool.MTListPool<SceneItem>.Release(l_OldList);
+            }
+        }
+        internal void DeserializeFilters(JArray jarray)
+        {
+            var l_SubItemCount = jarray.Count;
+            if (l_SubItemCount == 0)
+            {
+                if (Filters != null)
+                {
+                    for (int l_I = 0; l_I < Filters.Count; ++l_I)
+                        SceneItemFilter.Release(Filters[l_I]);
+
+                    Filters.Clear();
+                    Pool.MTListPool<SceneItemFilter>.Release(Filters);
+                    Filters = null;
+                }
+                return;
+            }
+
+            if (Filters == null)
+            {
+                Filters = Pool.MTListPool<SceneItemFilter>.Get();
+                Filters.Clear();
+            }
+
+            var l_OldList = Filters;
+            var l_NewList = Pool.MTListPool<SceneItemFilter>.Get();
+
+            try
+            {
+                for (int l_I = 0; l_I < l_SubItemCount; ++l_I)
+                {
+                    var l_JObject = jarray[l_I] as JObject;
+                    var l_Existing = l_OldList.FirstOrDefault(x => x.filterName == (l_JObject["filterName"]?.Value<string>() ?? null));
+
+                    if (l_Existing != null)
+                    {
+                        l_Existing.Deserialize(this, l_JObject);
+                        l_NewList.Add(l_Existing);
+                        l_OldList.Remove(l_Existing);
+                    }
+                    else
+                    {
+                        var l_New = SceneItemFilter.FromJObject(this, l_JObject);
+                        l_NewList.Add(l_New);
+                    }
+                }
+            }
+            catch (System.Exception l_Exception)
+            {
+                ChatPlexSDK.Logger.Error("[CP_SDK.OBS.Models][Scene.DeserializeFilters] Error:");
+                ChatPlexSDK.Logger.Error(l_Exception);
+            }
+            finally
+            {
+                Filters = l_NewList;
+
+                for (int l_I = 0; l_I < l_OldList.Count; ++l_I)
+                    SceneItemFilter.Release(l_OldList[l_I]);
+
+                l_OldList.Clear();
+                Pool.MTListPool<SceneItemFilter>.Release(l_OldList);
             }
         }
 

@@ -88,6 +88,9 @@ namespace CP_SDK.OBS
                 case "GetRecordStatus":
                     HandleRequest_GetRecordStatus(l_RequestID, l_Result, (JObject)l_ResponseData);
                     break;
+                case "GetSourceFilterList":
+                    HandleRequest_GetSourceFilterList(l_RequestID, l_Result, (JObject)l_ResponseData);
+                    break;
                 case "GetSceneItemList":
                     HandleRequest_GetSceneItemList(l_RequestID, l_Result, (JObject)l_ResponseData);
                     break;
