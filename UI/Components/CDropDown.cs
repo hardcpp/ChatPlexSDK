@@ -45,9 +45,10 @@ namespace CP_SDK.UI.Components
         /// <summary>
         /// Set available options
         /// </summary>
-        /// <param name="p_Options">New options list</param>
+        /// <param name="options">New options list</param>
+        /// <param name="notifyOnValueChanged">Should notify on value changed?</param>
         /// <returns></returns>
-        public abstract CDropdown SetOptions(List<string> p_Options);
+        public abstract CDropdown SetOptions(List<string> options, bool notifyOnValueChanged = true);
         /// <summary>
         /// Set value
         /// </summary>

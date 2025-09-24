@@ -59,7 +59,7 @@ namespace CP_SDK.UI.DefaultComponents
             m_BG.rectTransform.anchoredPosition             = Vector2.zero;
             m_BG.rectTransform.sizeDelta                    = Vector2.zero;
             m_BG.material                   = UISystem.Override_GetUIMaterial();
-            m_BG.color                      = new Color32(37, 140, 255, 255);
+            m_BG.color                      = UISystem.PrimaryColor;
             m_BG.type                       = Image.Type.Sliced;
             m_BG.pixelsPerUnitMultiplier    = 1;
             m_BG.sprite                     = UISystem.GetUIRoundBGSprite();
@@ -80,7 +80,7 @@ namespace CP_SDK.UI.DefaultComponents
             m_ValueText.SetAlign(TMPro.TextAlignmentOptions.MidlineLeft);
             m_ValueText.RTransform.anchorMin        = Vector2.zero;
             m_ValueText.RTransform.anchorMax        = Vector2.one;
-            m_ValueText.RTransform.anchoredPosition = new Vector2(-2.5f, 0);
+            m_ValueText.RTransform.anchoredPosition = new Vector2(-1.5f, 0);
             m_ValueText.RTransform.sizeDelta        = new Vector2(-5f, 0);
 
             m_Button = gameObject.AddComponent<Button>();

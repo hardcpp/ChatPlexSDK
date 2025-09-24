@@ -67,8 +67,8 @@ namespace CP_SDK.UI.DefaultComponents
             m_Icon.RTransform.pivot             = new Vector2( 1.0f,  0.5f);
             m_Icon.RTransform.anchorMin         = new Vector2( 1.0f,  0.5f);
             m_Icon.RTransform.anchorMax         = new Vector2( 1.0f,  0.5f);
-            m_Icon.RTransform.anchoredPosition  = new Vector2(-0.5f,  0.0f);
-            m_Icon.RTransform.sizeDelta         = new Vector2( 4.0f,  4.0f);
+            m_Icon.RTransform.anchoredPosition  = new Vector2(-1.5f,  0.0f);
+            m_Icon.RTransform.sizeDelta         = new Vector2( 3.0f,  3.0f);
             m_Icon.SetSprite(UISystem.GetUIDownArrowSprite());
             m_Icon.OnClick(Button_OnClick);
 
@@ -151,20 +151,26 @@ namespace CP_SDK.UI.DefaultComponents
         /// <summary>
         /// Set available options
         /// </summary>
-        /// <param name="p_Options">New options list</param>
+        /// <param name="options">New options list</param>
+        /// <param name="notifyOnValueChanged">Should notify on value changed?</param>
         /// <returns></returns>
-        public override Components.CDropdown SetOptions(List<string> p_Options)
+        public override Components.CDropdown SetOptions(List<string> options, bool notifyOnValueChanged = true)
         {
+            var l_ValueStr = GetValue();
+
             m_Options.Clear();
+            if (options != null)
+                m_Options.AddRange(options);
 
-            if (p_Options != null)
-                m_Options.AddRange(p_Options);
-
-            if (m_Value > m_Options.Count)
+            var l_NewValue = m_Options.IndexOf(l_ValueStr);
+            if (m_Value != l_NewValue)
             {
-                m_Value = -1;
+                m_Value = l_NewValue;
+
                 Refresh();
-                Notify();
+
+                if (notifyOnValueChanged)
+                    Notify();
             }
             else
                 Refresh();

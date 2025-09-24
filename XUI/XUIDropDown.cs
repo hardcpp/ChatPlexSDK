@@ -123,9 +123,10 @@ namespace CP_SDK.XUI
         /// <summary>
         /// Set available options
         /// </summary>
-        /// <param name="p_Options">New options list</param>
+        /// <param name="options">New options list</param>
+        /// <param name="notifyOnValueChanged">Should notify on value changed?</param>
         /// <returns></returns>
-        public XUIDropdown SetOptions(List<string> p_Options) => OnReady((x) => x.SetOptions(p_Options));
+        public XUIDropdown SetOptions(List<string> options, bool notifyOnValueChanged = true) => OnReady((x) => x.SetOptions(options, notifyOnValueChanged));
         /// <summary>
         /// Set value
         /// </summary>
