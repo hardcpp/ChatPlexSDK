@@ -1,15 +1,15 @@
 ﻿using Newtonsoft.Json;
+using System;
+using System.IO;
 
 namespace CP_SDK
 {
     /// <summary>
     /// ChatPlex SDK config
     /// </summary>
-    internal class CPConfig : Config.JsonConfig<CPConfig>
+    internal class ChatPlexServiceConfig : Config.JsonConfig<ChatPlexServiceConfig>
     {
-        [JsonProperty] internal bool FirstRun = true;
-        [JsonProperty] internal bool FirstChatCoreRun = true;
-        [JsonProperty] internal bool EventSpecials = true;
+        [JsonProperty] internal string Token = "";
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -19,7 +19,9 @@ namespace CP_SDK
         /// </summary>
         /// <returns></returns>
         public override string GetRelativePath()
-            => $"ChatPlexSDK";
+            => $"ChatPlexService";
+        public override string GetFullPath()
+            => System.IO.Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), $".ChatPlex/{GetRelativePath()}.json"));
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////

@@ -46,7 +46,7 @@ namespace CP_SDK
         ////////////////////////////////////////////////////////////////////////////
 
         public static EState    State               => m_State;
-        public static string    Token               => CPConfig.Instance.ChatPlexServiceToken;
+        public static string    Token               => ChatPlexServiceConfig.Instance.Token;
         public static string    LinkCode            => m_LinkCode;
         public static string    LastError           => m_LastError;
         public static string    ActiveSubscription  => m_State == EState.Connected ? m_ActiveSubscription : string.Empty;
@@ -129,8 +129,8 @@ namespace CP_SDK
         /// </summary>
         internal static void Disconnect()
         {
-            CPConfig.Instance.ChatPlexServiceToken = string.Empty;
-            CPConfig.Instance.Save();
+            ChatPlexServiceConfig.Instance.Token = string.Empty;
+            ChatPlexServiceConfig.Instance.Save();
 
             ChangeState(EState.Disconnected);
         }
@@ -178,7 +178,7 @@ namespace CP_SDK
         {
             while (m_ThreadCondition)
             {
-                if (m_State == EState.Disconnected && !string.IsNullOrEmpty(CPConfig.Instance.ChatPlexServiceToken))
+                if (m_State == EState.Disconnected && !string.IsNullOrEmpty(ChatPlexServiceConfig.Instance.Token))
                 {
                     m_WebClientCore.RemoveHeader("Authorization");
 
@@ -188,7 +188,7 @@ namespace CP_SDK
                         "Account_AuthByConnectedApplicationToken",
                         new JObject()
                         {
-                            ["ConnectedApplicationToken"] = CPConfig.Instance.ChatPlexServiceToken
+                            ["ConnectedApplicationToken"] = ChatPlexServiceConfig.Instance.Token
                         }
                     );
 
@@ -198,8 +198,8 @@ namespace CP_SDK
                     {
                         if (l_Result.Result != null && l_Result.Result.ContainsKey("Result") && l_Result.Result["Result"].Value<bool>() == false)
                         {
-                            CPConfig.Instance.ChatPlexServiceToken = string.Empty;
-                            CPConfig.Instance.Save();
+                            ChatPlexServiceConfig.Instance.Token = string.Empty;
+                            ChatPlexServiceConfig.Instance.Save();
 
                             ChangeState(EState.Disconnected);
                         }
@@ -242,8 +242,8 @@ namespace CP_SDK
                     {
                         if (l_Result.Result["ResultToken"].Value<string>() != null)
                         {
-                            CPConfig.Instance.ChatPlexServiceToken = l_Result.Result["ResultToken"].Value<string>();
-                            CPConfig.Instance.Save();
+                            ChatPlexServiceConfig.Instance.Token = l_Result.Result["ResultToken"].Value<string>();
+                            ChatPlexServiceConfig.Instance.Save();
 
                             ChangeState(EState.Disconnected);
                         }
@@ -284,7 +284,7 @@ namespace CP_SDK
             m_ActiveSubscription    = rpcResult.Result["ActiveSubscription"]?.Value<string>() ?? string.Empty;
             m_UnlockedFeatures      = (rpcResult.Result["UnlockedFeatures"] as JArray).Values<string>().ToArray();
 
-            m_WebClientCore.SetHeader("Authorization", $"ConnectedApplicationToken {CPConfig.Instance.ChatPlexServiceToken}");
+            m_WebClientCore.SetHeader("Authorization", $"ConnectedApplicationToken {ChatPlexServiceConfig.Instance.Token}");
 
             ChangeState(EState.Connected);
             FireOnTokenReady();

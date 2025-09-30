@@ -23,6 +23,8 @@ namespace CP_SDK.UI.Views
         private XUIToggle       m_EmotesTab_EmojisEnabled;
         private XUIToggle       m_EmotesTab_ParseTemporaryChannels;
 
+        private XUIToggle       m_MiscTab_EventSpecialsEnabled;
+
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
@@ -42,7 +44,8 @@ namespace CP_SDK.UI.Views
                 XUITabControl.Make(
                     ("OBS",     BuildOBSTab()),
                     ("Emotes",  BuildEmotesTab()),
-                    ("Tools",   BuildToolsTab())
+                    ("Tools",   BuildToolsTab()),
+                    ("Misc",    BuildMiscTab())
                 )
                 .Bind(ref m_TabControl)
             )
@@ -57,6 +60,7 @@ namespace CP_SDK.UI.Views
         protected override sealed void OnViewDeactivation()
         {
             CPConfig.Instance.Save();
+            ChatPlexServiceConfig.Instance.Save();
             Chat.ChatModSettings.Instance.Save();
         }
 
@@ -180,6 +184,31 @@ namespace CP_SDK.UI.Views
                 XUIVSpacer.Make(50f)
             );
         }
+        /// <summary>
+        /// Build misc tab
+        /// </summary>
+        /// <returns></returns>
+        private XUIVLayout BuildMiscTab()
+        {
+            var l_CPConfig = CPConfig.Instance;
+
+            return XUIVLayout.Make(
+                XUIHLayout.Make(
+                    XUIVLayout.Make(
+                        XUIText.Make("Event specials (Require game restart)")
+                    )
+                    .OnReady(x => x.HOrVLayoutGroup.childForceExpandWidth = true)
+                    .ForEachDirect<XUIText>(x => x.SetAlign(TMPro.TextAlignmentOptions.CaplineLeft)),
+
+                    XUIVLayout.Make(
+                        XUIToggle.Make()
+                            .SetValue(l_CPConfig.EventSpecials)
+                            .Bind(ref m_MiscTab_EventSpecialsEnabled)
+                    )
+                    .ForEachDirect<XUIToggle>(x => x.OnValueChanged(_ => OnValueChanged()))
+                )
+            );
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -246,6 +275,9 @@ namespace CP_SDK.UI.Views
             l_EmotesConfig.Parse7TVEmotes           = m_EmotesTab_7TVEnabled.Element.GetValue();
             l_EmotesConfig.ParseEmojis              = m_EmotesTab_EmojisEnabled.Element.GetValue();
             l_EmotesConfig.ParseTemporaryChannels   = m_EmotesTab_ParseTemporaryChannels.Element.GetValue();
+
+            var l_CPConfig = CPConfig.Instance;
+            l_CPConfig.EventSpecials = m_MiscTab_EventSpecialsEnabled.Element.GetValue();
         }
 
         ////////////////////////////////////////////////////////////////////////////

@@ -138,7 +138,7 @@ namespace CP_SDK.UI.DefaultComponents
                 l_Background.material                   = UISystem.Override_GetUIMaterial();
                 l_Background.type                       = Image.Type.Sliced;
                 l_Background.pixelsPerUnitMultiplier    = 1;
-                l_Background.color                      = ColorU.ToUnityColor("#727272");
+                l_Background.color                      = UISystem.TitleBlockBGColor;
 
                 if (p_Texts.Length == 1)
                     l_Background.sprite = UISystem.GetUIRoundBGSprite();
