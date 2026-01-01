@@ -252,7 +252,7 @@ namespace CP_SDK.Chat
         /// <returns></returns>
         public static void BroadcastMessage(string p_Message)
         {
-            foreach (var l_Current in Multiplexer.Channels)
+            foreach (var l_Current in Multiplexer?.Channels)
                 l_Current.Item1.SendTextMessage(l_Current.Item2, p_Message);
         }
 
