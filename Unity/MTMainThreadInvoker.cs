@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 
 namespace CP_SDK.Unity
@@ -60,6 +61,10 @@ namespace CP_SDK.Unity
         /// Current front queue
         /// </summary>
         private static int m_FrontQueue = 0;
+        /// <summary>
+        /// Main thread reference
+        /// </summary>
+        private static Thread _mainThread;
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -92,6 +97,18 @@ namespace CP_SDK.Unity
 
             GameObject.Destroy(m_Instance.gameObject);
             m_Instance = null;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Are we currently on the main thread?
+        /// </summary>
+        /// <returns></returns>
+        public static bool IsMainThread()
+        {
+            return _mainThread.Equals(System.Threading.Thread.CurrentThread);
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -177,6 +194,17 @@ namespace CP_SDK.Unity
 
             Array.Clear(l_Queue.Data, 0, l_Count);
             l_Queue.WritePos = 0;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// On component awake
+        /// </summary>
+        private void Awake()
+        {
+            _mainThread = System.Threading.Thread.CurrentThread;
         }
     }
 }
