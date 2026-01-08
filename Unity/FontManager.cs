@@ -3,6 +3,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -455,29 +456,48 @@ namespace CP_SDK.Unity
         /// <summary>
         /// Gets the font fallback list provided by the OS for a given font name, if there is any.
         /// </summary>
-        /// <param name="p_FullName">the full name of the font to look up the fallbacks for</param>
-        private static List<string> GetOSFontFallbackFullNameList(string p_FullName)
+        /// <param name="fontName">the full name of the font to look up the fallbacks for</param>
+        private static List<string> GetOSFontFallbackFullNameList(string fontName)
         {
-            var l_Result        = new List<string>();
-            var l_SyslinkKey    = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontLink\SystemLink");
-
-            if (l_SyslinkKey == null)
-                return l_Result;
-
-            var l_Value = l_SyslinkKey.GetValue(p_FullName);
-            if (!(l_Value is string[] l_Names))
-                return l_Result;
-
-            for (var l_I = 0; l_I < l_Names.Length; ++l_I)
+            var fallbackFontsFilename = new List<string>();
+            string[] fallbacksRaw = null; 
+            
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || IsWineEnvVarsPresent())
             {
-                var l_Parts = l_Names[l_I].Split(',');
-                if (l_Parts.Length < 1 || l_Result.Contains(l_Parts[1]))
+                if (fontName == "Segoe UI")
+                {
+                    fallbacksRaw = new string[]
+                    {
+                        "SEGUISYM.TTF,Segoe UI Symbol"
+                    };
+                }
+            }
+            else
+            { 
+                var systemLinkKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontLink\SystemLink");
+                if (systemLinkKey == null)
+                    return fallbackFontsFilename;
+
+                var systemLinkValue = systemLinkKey.GetValue(fontName);
+                if (!(systemLinkValue is string[]))
+                    return fallbackFontsFilename;
+                
+                fallbacksRaw = systemLinkValue as string[];
+            }
+            
+            if (fallbacksRaw == null)
+                return fallbackFontsFilename;
+
+            for (var i = 0; i < fallbacksRaw.Length; ++i)
+            {
+                var parts = fallbacksRaw[i].Split(',');
+                if (parts.Length < 1 || fallbackFontsFilename.Contains(parts[1]))
                     continue;
 
-                l_Result.Add(l_Parts[1]);
+                fallbackFontsFilename.Add(parts[1]);
             }
 
-            return l_Result;
+            return fallbackFontsFilename;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -487,6 +507,23 @@ namespace CP_SDK.Unity
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("FontManager not initialized");
+        }
+        
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsWineEnvVarsPresent()
+        {
+            // These variables are set only inside Wine/Proton.
+            // They are a quick, cheap fallback if the symbol check fails.
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WINEPREFIX")))
+                return true;
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WINEARCH")))
+                return true;
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PROTON_LOG")))
+                return true;
+            
+            return false;
         }
     }
 }

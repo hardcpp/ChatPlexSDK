@@ -27,6 +27,6 @@ namespace CP_SDK.OBS
         /// </summary>
         /// <returns></returns>
         public override string GetFullPath()
-            => System.IO.Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), $".ChatPlex/{GetRelativePath()}.json"));
+            => System.IO.Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".ChatPlex", $"{GetRelativePath()}.json"));
     }
 }

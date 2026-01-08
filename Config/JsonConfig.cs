@@ -106,7 +106,7 @@ namespace CP_SDK.Config
         /// </summary>
         /// <returns></returns>
         public virtual string GetFullPath()
-            => Path.Combine(ChatPlexSDK.BasePath, $"UserData/{GetRelativePath()}.json");
+            => Path.Combine(ChatPlexSDK.BasePath, "UserData", $"{GetRelativePath()}.json");
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -152,6 +152,7 @@ namespace CP_SDK.Config
                         {
                             var l_Content = l_StreamReader.ReadToEnd();
                             var l_Params  = new JsonSerializerSettings();
+                            
                             m_JsonConverters.ForEach(x => l_Params.Converters.Add(x));
                             l_Params.DefaultValueHandling   = DefaultValueHandling.Include;
                             l_Params.NullValueHandling      = NullValueHandling.Ignore;

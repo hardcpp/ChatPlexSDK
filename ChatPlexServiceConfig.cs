@@ -21,7 +21,7 @@ namespace CP_SDK
         public override string GetRelativePath()
             => $"ChatPlexService";
         public override string GetFullPath()
-            => System.IO.Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), $".ChatPlex/{GetRelativePath()}.json"));
+            => System.IO.Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".ChatPlex", $"{GetRelativePath()}.json"));
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
@@ -32,7 +32,6 @@ namespace CP_SDK
         /// <param name="p_OnCreation">On creation</param>
         protected override void OnInit(bool p_OnCreation)
         {
-
         }
     }
 }

@@ -47,6 +47,6 @@ namespace CP_SDK.Chat
         /// </summary>
         /// <returns></returns>
         public override string GetFullPath()
-            => Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), $".ChatPlex/{GetRelativePath()}.json"));
+            => Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".ChatPlex", $"{GetRelativePath()}.json"));
     }
 }
