@@ -66,6 +66,7 @@ namespace CP_SDK
             m_JsonRPCClient = new JsonRPCClient(m_WebClientCore);
 
             m_Thread = new Thread(ThreadRunner);
+            m_Thread.IsBackground = true;
             m_Thread.Start();
 
             m_DeviceName = SystemInfo.deviceName;
@@ -176,82 +177,96 @@ namespace CP_SDK
         /// </summary>
         private static void ThreadRunner()
         {
+            Thread.Sleep(2000);
+            
             while (m_ThreadCondition)
             {
-                if (m_State == EState.Disconnected && !string.IsNullOrEmpty(ChatPlexServiceConfig.Instance.Token))
+                try
                 {
-                    m_WebClientCore.RemoveHeader("Authorization");
-
-                    ChangeState(EState.Connecting);
-
-                    var l_Result = m_JsonRPCClient.Request(
-                        "Account_AuthByConnectedApplicationToken",
-                        new JObject()
-                        {
-                            ["ConnectedApplicationToken"] = ChatPlexServiceConfig.Instance.Token
-                        }
-                    );
-
-                    if (IsRPCSuccess(l_Result))
-                        OnAuthed(l_Result);
-                    else
+                    if (m_State == EState.Disconnected && !string.IsNullOrEmpty(ChatPlexServiceConfig.Instance.Token))
                     {
-                        if (l_Result.Result != null && l_Result.Result.ContainsKey("Result") && l_Result.Result["Result"].Value<bool>() == false)
-                        {
-                            ChatPlexServiceConfig.Instance.Token = string.Empty;
-                            ChatPlexServiceConfig.Instance.Save();
+                        m_WebClientCore.RemoveHeader("Authorization");
 
-                            ChangeState(EState.Disconnected);
+                        ChangeState(EState.Connecting);
+
+                        var l_Result = m_JsonRPCClient.Request(
+                            "Account_AuthByConnectedApplicationToken",
+                            new JObject()
+                            {
+                                ["ConnectedApplicationToken"] = ChatPlexServiceConfig.Instance.Token
+                            }
+                        );
+                        
+                        if (IsRPCSuccess(l_Result))
+                        {
+                            OnAuthed(l_Result);
+                        }
+                        else
+                        {
+                            if (l_Result.Result != null && l_Result.Result.ContainsKey("Result") &&
+                                l_Result.Result["Result"].Value<bool>() == false)
+                            {
+                                ChatPlexServiceConfig.Instance.Token = string.Empty;
+                                ChatPlexServiceConfig.Instance.Save();
+
+                                ChangeState(EState.Disconnected);
+                            }
+                            else
+                                OnError(l_Result);
+                        }
+                        
+                    }
+                    else if (m_State == EState.LinkRequest)
+                    {
+                        var l_Result = m_JsonRPCClient.Request(
+                            "ConnectedApplication_CreateLinkRequest",
+                            new JObject()
+                            {
+                                ["ApplicationIdentifier"] = ChatPlexSDK.ProductName,
+                                ["ApplicationDeviceName"] = m_DeviceName
+                            }
+                        );
+
+                        if (IsRPCSuccess(l_Result))
+                        {
+                            m_LinkRequestID = l_Result.Result["RequestID"].Value<string>();
+                            m_LinkCode = l_Result.Result["Code"].Value<string>();
+
+                            ChangeState(EState.LinkWait);
                         }
                         else
                             OnError(l_Result);
                     }
-                }
-                else if (m_State == EState.LinkRequest)
-                {
-                    var l_Result = m_JsonRPCClient.Request(
-                        "ConnectedApplication_CreateLinkRequest",
-                        new JObject()
-                        {
-                            ["ApplicationIdentifier"] = ChatPlexSDK.ProductName,
-                            ["ApplicationDeviceName"] = m_DeviceName
-                        }
-                    );
-
-                    if (IsRPCSuccess(l_Result))
+                    else if (m_State == EState.LinkWait)
                     {
-                        m_LinkRequestID = l_Result.Result["RequestID"].Value<string>();
-                        m_LinkCode = l_Result.Result["Code"].Value<string>();
+                        var l_Result = m_JsonRPCClient.Request(
+                            "ConnectedApplication_GetLinkRequestStatus",
+                            new JObject()
+                            {
+                                ["RequestID"] = m_LinkRequestID,
+                            }
+                        );
 
-                        ChangeState(EState.LinkWait);
+                        if (IsRPCSuccess(l_Result))
+                        {
+                            if (l_Result.Result["ResultToken"].Value<string>() != null)
+                            {
+                                ChatPlexServiceConfig.Instance.Token = l_Result.Result["ResultToken"].Value<string>();
+                                ChatPlexServiceConfig.Instance.Save();
+
+                                ChangeState(EState.Disconnected);
+                            }
+                        }
+                        else
+                            OnError(l_Result);
                     }
-                    else
-                        OnError(l_Result);
+
                 }
-                else if (m_State == EState.LinkWait)
+                catch (Exception exception)
                 {
-                    var l_Result = m_JsonRPCClient.Request(
-                        "ConnectedApplication_GetLinkRequestStatus",
-                        new JObject()
-                        {
-                            ["RequestID"] = m_LinkRequestID,
-                        }
-                    );
-
-                    if (IsRPCSuccess(l_Result))
-                    {
-                        if (l_Result.Result["ResultToken"].Value<string>() != null)
-                        {
-                            ChatPlexServiceConfig.Instance.Token = l_Result.Result["ResultToken"].Value<string>();
-                            ChatPlexServiceConfig.Instance.Save();
-
-                            ChangeState(EState.Disconnected);
-                        }
-                    }
-                    else
-                        OnError(l_Result);
+                    ChatPlexSDK.Logger.Error(exception);
                 }
-
+                
                 if (m_State == EState.LinkWait)
                     Thread.Sleep(1500);
                 else
@@ -269,7 +284,7 @@ namespace CP_SDK
         /// <returns>True if success</returns>
         private static bool IsRPCSuccess(JsonRPCResult rpcResult)
         {
-            return rpcResult.Result != null && rpcResult.Result.ContainsKey("Result") && rpcResult.Result["Result"].Value<bool>() == true;
+            return rpcResult.Result != null && rpcResult.Result.ContainsKey("Result") && rpcResult.Result["Result"]?.Value<bool>() == true;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -282,7 +297,7 @@ namespace CP_SDK
         private static void OnAuthed(JsonRPCResult rpcResult)
         {
             m_ActiveSubscription    = rpcResult.Result["ActiveSubscription"]?.Value<string>() ?? string.Empty;
-            m_UnlockedFeatures      = (rpcResult.Result["UnlockedFeatures"] as JArray).Values<string>().ToArray();
+            m_UnlockedFeatures      = (rpcResult.Result["UnlockedFeatures"] as JArray)?.Values<string>()?.ToArray();
 
             m_WebClientCore.SetHeader("Authorization", $"ConnectedApplicationToken {ChatPlexServiceConfig.Instance.Token}");
 
@@ -295,9 +310,9 @@ namespace CP_SDK
         /// <param name="rpcResult">Result of the RPC command</param>
         private static void OnError(JsonRPCResult rpcResult)
         {
-            var l_Error = "Unknow server error!";
+            var l_Error = "Unknow server error!" + rpcResult?.RawResponse?.BodyString;
             if (rpcResult.Result != null && rpcResult.Result.ContainsKey("Error"))
-                l_Error = rpcResult.Result["Error"].Value<string>();
+                l_Error = rpcResult.Result["Error"]?.Value<string>();
 
             m_LastError = l_Error;
             ChangeState(EState.Error);
