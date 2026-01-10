@@ -69,6 +69,7 @@ namespace CP_SDK.Unity
             m_RunCondition = true;
 
             m_UpdateThread = new Thread(Update);
+            m_UpdateThread.IsBackground = true;
             m_UpdateThread.Start();
         }
         /// <summary>

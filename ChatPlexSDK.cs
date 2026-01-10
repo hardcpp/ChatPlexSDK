@@ -119,6 +119,7 @@ namespace CP_SDK
                 }
 
                 /// Init fonts
+                Unity.FontManager.ApplyPlatformFixes();
                 Unity.FontManager.Init();
 
                 /// Init UI

@@ -3,6 +3,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using TMPro;
@@ -88,6 +89,23 @@ namespace CP_SDK.Unity
                 TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.NotOnRanToCompletion
             );
             return SystemFontLoadTask;
+        }
+        /// <summary>
+        /// Apply platform fixes if any
+        /// </summary>
+        internal static void ApplyPlatformFixes()
+        {
+            if (IsWineEnvVarsPresent())
+            {
+                try
+                {
+                    TryFixWineFonts();
+                }
+                catch (Exception)
+                {
+                    // Do nothing...
+                }
+            }
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -512,6 +530,10 @@ namespace CP_SDK.Unity
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Check if any Wine/Proton environment var is present
+        /// </summary>
+        /// <returns></returns>
         private static bool IsWineEnvVarsPresent()
         {
             // These variables are set only inside Wine/Proton.
@@ -524,6 +546,49 @@ namespace CP_SDK.Unity
                 return true;
             
             return false;
+        }
+        /// <summary>
+        /// Try to fix wine fonts
+        /// </summary>
+        private static void TryFixWineFonts()
+        {
+            var targetFolderPath = @"c:\windows\Fonts";
+            
+            if (!m_OSPaths.Any((x) => x.ToLower().Contains("segoeui.ttf")))
+            {
+                ChatPlexSDK.Logger.Warning("Trying to download segoeui.ttf font for Wine");
+                var segoeuisymResponse = Network.WebClientCore.GlobalClient.Donwload(
+                    "https://raw.githubusercontent.com/mrbvrz/segoe-ui-linux/refs/heads/master/font/segoeui.ttf", true);
+
+                if (segoeuisymResponse.IsSuccessStatusCode)
+                {
+                    var targetFilePath =  Path.Combine(targetFolderPath, "segoeui.ttf");
+                    File.WriteAllBytes(targetFilePath, segoeuisymResponse.BodyBytes);
+                    
+                    var newOsPaths = new string[m_OSPaths.Length + 1];
+                    Array.Copy(m_OSPaths, newOsPaths, m_OSPaths.Length);
+                    newOsPaths[newOsPaths.Length - 1] =  targetFilePath;
+                    m_OSPaths = newOsPaths;
+                }
+            }
+            
+            if (!m_OSPaths.Any((x) => x.ToLower().Contains("seguisym.ttf")))
+            {
+                ChatPlexSDK.Logger.Warning("Trying to download seguisym.tff font for Wine");
+                var seguisymResponse = Network.WebClientCore.GlobalClient.Donwload(
+                    "https://raw.githubusercontent.com/mrbvrz/segoe-ui-linux/refs/heads/master/font/seguisym.ttf", true);
+                
+                if (seguisymResponse.IsSuccessStatusCode)
+                {
+                    var targetFilePath =  Path.Combine(targetFolderPath, "seguisym.ttf");
+                    File.WriteAllBytes(targetFilePath, seguisymResponse.BodyBytes);
+                    
+                    var newOsPaths = new string[m_OSPaths.Length + 1];
+                    Array.Copy(m_OSPaths, newOsPaths, m_OSPaths.Length);
+                    newOsPaths[newOsPaths.Length - 1] =  targetFilePath;
+                    m_OSPaths = newOsPaths;
+                }
+            }
         }
     }
 }
