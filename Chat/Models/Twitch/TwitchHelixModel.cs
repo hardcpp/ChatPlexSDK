@@ -54,60 +54,6 @@ namespace CP_SDK.Chat.Models.Twitch
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    /// HypeTrain
-    ////////////////////////////////////////////////////////////////////////////
-
-    [Serializable]
-    public class Helix_HypeTrain : IHelixModel
-    {
-        [Serializable]
-        public class Event_Data
-        {
-            [Serializable]
-            public class Contribution
-            {
-                [JsonProperty] public int total { get; protected set; }
-                [JsonProperty] public string type { get; protected set; }
-                [JsonProperty] public string user { get; protected set; }
-            }
-
-            [JsonProperty] public string broadcaster_id { get; protected set; }
-            [JsonProperty] public DateTime cooldown_end_time { get; protected set; }
-            [JsonProperty] public DateTime expires_at { get; protected set; }
-            [JsonProperty] public int goal { get; protected set; }
-            [JsonProperty] public string id { get; protected set; }
-            [JsonProperty] public Contribution last_contribution { get; protected set; }
-            [JsonProperty] public int level { get; protected set; }
-            [JsonProperty] public DateTime started_at { get; protected set; }
-            [JsonProperty] public List<Contribution> top_contributions { get; protected set; } = new List<Contribution>();
-            [JsonProperty] public int total { get; protected set; }
-        }
-
-        [JsonProperty] public string id { get; protected set; }
-        [JsonProperty] public string event_type { get; protected set; }
-        [JsonProperty] public DateTime event_timestamp { get; protected set; }
-        [JsonProperty] public string version { get; protected set; }
-        [JsonProperty] public Event_Data event_data { get; protected set; }
-
-        public static bool HasChanged(Helix_HypeTrain p_Left, Helix_HypeTrain p_Right)
-        {
-            if (p_Left == null && p_Right == null)
-                return false;
-
-            if ((p_Left == null && p_Right != null) || (p_Left != null && p_Right == null))
-                return true;
-
-            if ((p_Left.event_data == null && p_Right.event_data != null) || (p_Left.event_data != null && p_Right.event_data == null))
-                return true;
-
-            return p_Left.id != p_Right.id
-                || p_Left.event_data.started_at != p_Right.event_data.started_at
-                || p_Left.event_data.level != p_Right.event_data.level
-                || p_Left.event_data.total != p_Right.event_data.total;
-        }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
     /// Marker
     ////////////////////////////////////////////////////////////////////////////
 

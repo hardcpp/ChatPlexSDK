@@ -48,9 +48,6 @@ namespace CP_SDK.Chat.Services.Twitch
         internal const int POLL_UPDATE_INTERVAL = 10000;
         internal const int ACTIVE_POLL_UPDATE_INTERVAL = 2000;
 
-        internal const int HYPETRAIN_UPDATE_INTERVAL = 10000;
-        internal const int ACTIVE_HYPETRAIN_UPDATE_INTERVAL = 2000;
-
         internal const int PREDICTION_UPDATE_INTERVAL = 10000;
         internal const int ACTIVE_PREDICTION_UPDATE_INTERVAL = 2000;
 
@@ -67,8 +64,6 @@ namespace CP_SDK.Chat.Services.Twitch
         private DateTime                m_LastStreamCheckTime       = DateTime.MinValue;
         private DateTime                m_LastPollCheckTime         = DateTime.MinValue;
         private Helix_Poll              m_LastPoll                  = null;
-        private DateTime                m_LastHypeTrainCheckTime    = DateTime.MinValue;
-        private Helix_HypeTrain         m_LastHypeTrain             = null;
         private DateTime                m_LastPredictionCheckTime   = DateTime.MinValue;
         private Helix_Prediction        m_LastPrediction            = null;
 
@@ -83,7 +78,6 @@ namespace CP_SDK.Chat.Services.Twitch
 
         public event Action<bool, Helix_TokenValidate, string>  OnTokenValidate;
         public event Action<Helix_Poll>                         OnActivePollChanged;
-        public event Action<Helix_HypeTrain>                    OnActiveHypeTrainChanged;
         public event Action<Helix_Prediction>                   OnActivePredictionChanged;
 
         ////////////////////////////////////////////////////////////////////////////
@@ -174,29 +168,6 @@ namespace CP_SDK.Chat.Services.Twitch
                     }
                     else if (p_Status != EHelixResult.OK)
                         m_LastPoll = null;
-                });
-            }
-            #endregion
-
-            #region Hype train
-            l_Interval = HYPETRAIN_UPDATE_INTERVAL;
-            if (m_LastHypeTrain != null && m_LastHypeTrain.event_data.expires_at > DateTime.UtcNow)
-                l_Interval = ACTIVE_HYPETRAIN_UPDATE_INTERVAL;
-
-            if ((DateTime.Now - m_LastHypeTrainCheckTime).TotalMilliseconds > l_Interval)
-            {
-                m_LastHypeTrainCheckTime = DateTime.Now;
-                GetLastHypeTrain((p_Status, p_Result, p_Error) =>
-                {
-                    m_LastHypeTrainCheckTime = DateTime.Now;
-
-                    if (p_Status == EHelixResult.OK && Helix_HypeTrain.HasChanged(m_LastHypeTrain, p_Result))
-                    {
-                        m_LastHypeTrain = p_Result;
-                        OnActiveHypeTrainChanged?.Invoke(p_Result);
-                    }
-                    else if (p_Status != EHelixResult.OK)
-                        m_LastHypeTrain = null;
                 });
             }
             #endregion
@@ -331,19 +302,6 @@ namespace CP_SDK.Chat.Services.Twitch
                 "clips:edit",
                 $"clips?broadcaster_id={BroadcasterUserID}&has_delay={p_Query.has_delay}",
                 null,
-                (p_CallResult, p_Result, p_Error) => p_Callback?.Invoke(p_CallResult, p_Result?.data?.Length > 0 ? p_Result.data[0] : null, p_Error)
-            );
-        }
-
-        ////////////////////////////////////////////////////////////////////////////
-        /// HypeTrain
-        ////////////////////////////////////////////////////////////////////////////
-
-        public void GetLastHypeTrain(Action<EHelixResult, Helix_HypeTrain, string> p_Callback)
-        {
-            GetQuery<THelixMultiModel<Helix_HypeTrain>>(
-                "channel:read:hype_train",
-                $"hypetrain/events?broadcaster_id={BroadcasterUserID}&first=1",
                 (p_CallResult, p_Result, p_Error) => p_Callback?.Invoke(p_CallResult, p_Result?.data?.Length > 0 ? p_Result.data[0] : null, p_Error)
             );
         }

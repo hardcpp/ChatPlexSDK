@@ -1,10 +1,12 @@
-﻿using CP_SDK.Chat.Models.Twitch;
+﻿using System;
+using CP_SDK.Chat.Models.Twitch;
 using CP_SDK.Chat.SimpleJSON;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace CP_SDK.Chat.Services.Twitch
 {
@@ -63,6 +65,11 @@ namespace CP_SDK.Chat.Services.Twitch
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
+        
+        public event Action<EventSub_HypeTrain> OnActiveHypeTrainChanged;
+        
+        ////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////
 
         /// <summary>
         /// Constructor
@@ -100,39 +107,76 @@ namespace CP_SDK.Chat.Services.Twitch
 
         ////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////
-
+        
         /// <summary>
         /// Subscribe for channel follow
         /// </summary>
-        /// <param name="p_RoomID">ID of the channel</param>
-        public void Subscribe_ChannelFollow(string p_RoomID)
+        /// <param name="roomId">ID of the channel</param>
+        public void Subscribe_ChannelFollow(string roomId)
         {
             AddSubscription(new Subscription()
             {
-                RoomID      = p_RoomID,
+                RoomID      = roomId,
                 Type        = "channel.follow",
                 Version     = "2",
                 Conditions  = new Dictionary<string, string>()
                 {
-                    { "broadcaster_user_id",    p_RoomID                                },
-                    { "moderator_user_id",      m_TwitchService.HelixAPI.TokenUserID    },
+                    { "broadcaster_user_id",    roomId                               },
+                    { "moderator_user_id",      m_TwitchService.HelixAPI.TokenUserID },
+                }
+            });
+        }
+        /// <summary>
+        /// Subscribe for channel hype train
+        /// </summary>
+        /// <param name="roomId">ID of the channel</param>
+        public void Subscribe_ChannelHypeTrain(string roomId)
+        {
+            AddSubscription(new Subscription()
+            {
+                RoomID      = roomId,
+                Type        = "channel.hype_train.begin",
+                Version     = "2",
+                Conditions  = new Dictionary<string, string>()
+                {
+                    { "broadcaster_user_id", roomId },
+                }
+            });
+            AddSubscription(new Subscription()
+            {
+                RoomID      = roomId,
+                Type        = "channel.hype_train.progress",
+                Version     = "2",
+                Conditions  = new Dictionary<string, string>()
+                {
+                    { "broadcaster_user_id", roomId },
+                }
+            });
+            AddSubscription(new Subscription()
+            {
+                RoomID      = roomId,
+                Type        = "channel.hype_train.end",
+                Version     = "2",
+                Conditions  = new Dictionary<string, string>()
+                {
+                    { "broadcaster_user_id", roomId },
                 }
             });
         }
         /// <summary>
         /// Subscribe for Channel Points Custom Reward Redemption Add
         /// </summary>
-        /// <param name="p_RoomID">ID of the channel</param>
-        public void Subscribe_ChannelPointCustomRewardRedemptionAdd(string p_RoomID)
+        /// <param name="roomId">ID of the channel</param>
+        public void Subscribe_ChannelPointCustomRewardRedemptionAdd(string roomId)
         {
             AddSubscription(new Subscription()
             {
-                RoomID      = p_RoomID,
+                RoomID      = roomId,
                 Type        = "channel.channel_points_custom_reward_redemption.add",
                 Version     = "1",
                 Conditions  = new Dictionary<string, string>()
                 {
-                    { "broadcaster_user_id", p_RoomID },
+                    { "broadcaster_user_id", roomId },
                 }
             });
         }
@@ -342,6 +386,28 @@ namespace CP_SDK.Chat.Services.Twitch
                                     break;
                                 }
 
+                                case "channel.hype_train.begin":
+                                {
+                                    if (l_Payload.TryGetKey("event", out var l_Event))
+                                        Handle_Notification_ChannelHypeTrain(l_Event, false, false);
+                                    
+                                    break;
+                                }
+                                case "channel.hype_train.progress":
+                                {
+                                    if (l_Payload.TryGetKey("event", out var l_Event))
+                                        Handle_Notification_ChannelHypeTrain(l_Event, true, false);
+
+                                    break;
+                                }
+                                case "channel.hype_train.end":
+                                {
+                                    if (l_Payload.TryGetKey("event", out var l_Event))
+                                        Handle_Notification_ChannelHypeTrain(l_Event, false, true);
+
+                                    break;
+                                }
+
                                 case "channel.channel_points_custom_reward_redemption.add":
                                 {
                                     if (l_Payload.TryGetKey("event", out var l_Event))
@@ -423,6 +489,15 @@ namespace CP_SDK.Chat.Services.Twitch
                     m_TwitchService.m_OnChannelFollowCallbacks?.InvokeAll(m_TwitchService, l_FollowChannel, l_FollowUser);
                 }
             }
+        }
+        /// <summary>
+        /// message_type='notification' subscription_type='channel.follow'
+        /// </summary>
+        private void Handle_Notification_ChannelHypeTrain(JSONNode p_Event, bool isProgress, bool isEnd)
+        {
+            var data = JsonConvert.DeserializeObject<EventSub_HypeTrain>(p_Event.ToString());
+            
+            OnActiveHypeTrainChanged?.Invoke(data);
         }
         /// <summary>
         /// message_type='notification' subscription_type='channel.channel_points_custom_reward_redemption.add'
