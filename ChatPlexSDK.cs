@@ -200,6 +200,10 @@ namespace CP_SDK
                             m_Modules.Add(l_Module);
                         }
                     }
+                    catch (TypeLoadException)
+                    {
+                        // Nothing to do, the module propably reference other modules that are not available
+                    }
                     catch (Exception l_Exception)
                     {
                         Logger.Error("[CP_SDK][ChatPlexSDK.InitModules] Failed to find modules in " + l_Assembly.FullName);
