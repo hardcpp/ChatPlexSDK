@@ -31,6 +31,7 @@ namespace CP_SDK.Unity
         private class Queue
         {
             public Action[] Data = new Action[MAX_QUEUE_SIZE];
+            public int ReadPos = 0;
             public int WritePos = 0;
         }
 
@@ -61,6 +62,7 @@ namespace CP_SDK.Unity
         /// Current front queue
         /// </summary>
         private static int m_FrontQueue = 0;
+        private static int m_ProcessingQueue = -1;
         /// <summary>
         /// Main thread reference
         /// </summary>
@@ -94,6 +96,9 @@ namespace CP_SDK.Unity
                 new Queue(),
                 new Queue()
             };
+            m_FrontQueue = 0;
+            m_ProcessingQueue = -1;
+            m_Queued = false;
 
             GameObject.Destroy(m_Instance.gameObject);
             m_Instance = null;
@@ -146,29 +151,31 @@ namespace CP_SDK.Unity
         /// </summary>
         private void Update()
         {
-            if (!m_Queued)
-                return;
-
-            var l_QueueToHandle     = m_FrontQueue;
-            var l_NextFrontQueue    = (m_FrontQueue + 1) & 1;
-
-            lock (m_Queues)
+            if (m_ProcessingQueue == -1)
             {
-                m_FrontQueue    = l_NextFrontQueue;
-                m_Queued        = false;
+                lock (m_Queues)
+                {
+                    if (!m_Queued)
+                        return;
+
+                    m_ProcessingQueue = m_FrontQueue;
+                    m_FrontQueue = (m_FrontQueue + 1) & 1;
+                    m_Queued = false;
+                }
             }
 
-            var l_Queue = m_Queues[l_QueueToHandle];
-            var l_Count = l_Queue.WritePos;
-            var l_I     = 0;
+            // Finish the older batch before swapping in work queued during its execution.
+            var l_Queue = m_Queues[m_ProcessingQueue];
 
             m_StopWatch.Restart();
 
             do
             {
+                var l_Action = l_Queue.Data[l_Queue.ReadPos];
+                l_Queue.Data[l_Queue.ReadPos++] = null;
                 try
                 {
-                    l_Queue.Data[l_I]();
+                    l_Action();
                 }
                 catch (Exception l_Exception)
                 {
@@ -176,24 +183,14 @@ namespace CP_SDK.Unity
                     ChatPlexSDK.Logger.Error(l_Exception);
                 }
 
-                ++l_I;
-            } while (l_I < l_Count && m_StopWatch.Elapsed < m_YieldAfterTime);
+            } while (l_Queue.ReadPos < l_Queue.WritePos && m_StopWatch.Elapsed < m_YieldAfterTime);
 
-            if (l_I < l_Count)
+            if (l_Queue.ReadPos == l_Queue.WritePos)
             {
-                var l_ToCopy        = l_Count - l_I;
-                var l_FrontQueue    = m_Queues[m_FrontQueue];
-
-                lock (m_Queues)
-                {
-                    Array.Copy(l_Queue.Data, l_I, l_FrontQueue.Data, l_FrontQueue.WritePos, l_ToCopy);
-                    l_FrontQueue.WritePos += l_ToCopy;
-                    m_Queued = true;
-                }
+                l_Queue.ReadPos = 0;
+                l_Queue.WritePos = 0;
+                m_ProcessingQueue = -1;
             }
-
-            Array.Clear(l_Queue.Data, 0, l_Count);
-            l_Queue.WritePos = 0;
         }
 
         ////////////////////////////////////////////////////////////////////////////
